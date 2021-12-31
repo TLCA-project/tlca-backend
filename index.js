@@ -10,7 +10,8 @@ mongoose.connect(environment[env].dbString, {
 
 */
 
-const { ApolloServer, gql } = require('apollo-server');
+const { ApolloServer, gql, UserInputError } = require('apollo-server');
+const jwt = require('jsonwebtoken');
 
 const typeDefs = gql`
   type Course {
@@ -32,6 +33,10 @@ const typeDefs = gql`
     name: String!
   }
 
+  type SignInResponse {
+    token: String!
+  }
+
   type Query {
     courses(limit: Int): [Course!]!,
     course(code: String!): Course,
@@ -39,6 +44,10 @@ const typeDefs = gql`
     partner(code: String!): Partner,
     programs(limit: Int): [Program!]!,
     program(code: String!): Program
+  }
+
+  type Mutation {
+    signIn(email: String!, password: String!): SignInResponse!
   }
 `;
 
@@ -116,9 +125,36 @@ const resolvers = {
       return partners.find(p => p.code === args.code);
     }
   },
+  Mutation: {
+    signIn(_parent, args, _context, _info) {
+      const { email, password } = args;
+      console.log('Login:', email, password);
+
+      if (email === 'seb' && password === '123') {
+        return {
+          token: jwt.sign({ id: 'CouCou' }, 'SECRET_STORY')
+        };
+      }
+
+      throw new UserInputError('Invalid credentials');
+    }
+  }
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const getUser = function(_token) {
+  return { loggedIn: true };
+};
+
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req }) => {
+    const token = req.headers.authorization || '';
+    const user = getUser(token);
+    return { user };
+  }
+});
+
 server.listen({ port: 4001 }).then(({ url }) => {
   console.log(`🚀  Server ready at ${url}`);
 });
