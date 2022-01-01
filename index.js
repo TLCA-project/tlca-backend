@@ -37,9 +37,14 @@ const typeDefs = gql`
     token: String!
   }
 
+  type User {
+    displayName: String!
+  }
+
   type Query {
     courses(limit: Int): [Course!]!,
     course(code: String!): Course,
+    me: User,
     partners(limit: Int): [Partner!]!,
     partner(code: String!): Partner,
     programs(limit: Int): [Program!]!,
@@ -47,7 +52,8 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    signIn(email: String!, password: String!): SignInResponse!
+    signIn(email: String!, password: String!): SignInResponse!,
+    signOut: Boolean
   }
 `;
 
@@ -112,6 +118,9 @@ const resolvers = {
     course(_parent, args, _context, _info) {
       return courses.find(c => c.code === args.code);
     },
+    me(_parent, _args, _context, _info) {
+      return { displayName: 'Sébastien' };
+    },
     programs(_parent, args, _context, _info) {
       return programs.slice(0, args.limit ?? programs.length);
     },
@@ -128,8 +137,6 @@ const resolvers = {
   Mutation: {
     signIn(_parent, args, _context, _info) {
       const { email, password } = args;
-      console.log('Login:', email, password);
-
       if (email === 'seb' && password === '123') {
         return {
           token: jwt.sign({ id: 'CouCou' }, 'SECRET_STORY')
@@ -137,6 +144,9 @@ const resolvers = {
       }
 
       throw new UserInputError('Invalid credentials');
+    },
+    signOut(_parent, _args, _context, _info) {
+      return true;
     }
   }
 };
