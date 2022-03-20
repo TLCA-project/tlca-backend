@@ -1,6 +1,7 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+const Schema = mongoose.Schema;
 
-const CompetencySchema = new mongoose.Schema({
+const CompetencySchema = new Schema({
   competency: {
     type: Schema.ObjectId,
     ref: 'Competency'
@@ -18,7 +19,7 @@ const CompetencySchema = new mongoose.Schema({
   _id: false
 });
 
-const GroupSchema = new mongoose.Schema({
+const GroupSchema = new Schema({
   name: {
     type: String,
     required: true
@@ -33,7 +34,7 @@ const GroupSchema = new mongoose.Schema({
   _id: false
 });
 
-const ProgressStepSchema = new mongoose.Schema({
+const ProgressStepSchema = new Schema({
   date: {
     type: Date,
     required: true
@@ -57,7 +58,7 @@ const ProgressStepSchema = new mongoose.Schema({
   _id: false
 });
 
-export const CourseSchema = new mongoose.Schema({
+const CourseSchema = new Schema({
   code: {
     type: String,
     trim: true,
@@ -200,3 +201,5 @@ export const CourseSchema = new mongoose.Schema({
     ref: 'User'
   }
 }, { usePushEach: true });
+
+export default mongoose.model('Course', CourseSchema);
