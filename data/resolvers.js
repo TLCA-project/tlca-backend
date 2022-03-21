@@ -52,6 +52,7 @@ const resolvers = {
     async partner(_parent, args, _context, _info) {
       const pipeline = [];
       const project = {
+        _id: 1,
         abbreviation: 1,
         code: 1,
         courses: {
@@ -93,7 +94,15 @@ const resolvers = {
       // Retrieve the partners satisfying the conditions defined hereabove
       const partners = await Partner.aggregate(pipeline);
       if (partners?.length === 1) {
-        return partners[0];
+        const partner = partners[0];
+
+        // Generate full path for the logo
+        if (partner.logo) {
+          partner.logo = `/uploads/partners/${partner._id}/${partner.logo}`;
+        }
+        delete partner._id;
+
+        return partner;
       }
 
       throw new UserInputError('Partner not found.');
