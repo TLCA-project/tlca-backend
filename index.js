@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
-require('dotenv').config()
+import dotenv from 'dotenv'
+dotenv.config()
 
 import {} from './models/competency-model.js';
 import Course from './models/course-model.js';
-import {} from './models/partner-model.js';
+import Partner from './models/partner-model.js';
+import Program from './models/program-model.js';
 import User from './models/user-model.js';
 
 mongoose.connect(process.env.MONGODB_URI, {
@@ -16,81 +18,9 @@ db.on('error', () => {
   console.error('Error while connecting to DB');
 });
 
-import { ApolloServer, gql, UserInputError } from 'apollo-server';
+import { ApolloServer, UserInputError } from 'apollo-server';
 import jwt from 'jsonwebtoken';
-
-const typeDefs = gql`
-  scalar Date
-
-  type Competency {
-    code: String!,
-    name: String!,
-    description: String
-  }
-
-  type Event {
-    name: String,
-    date: Date
-  }
-
-  type CourseCompetency {
-    competency: Competency!,
-    category: String!,
-    subcategory: String
-  }
-
-  type Course {
-    banner: String,
-    code: String!,
-    colophon: String,
-    competencies: [CourseCompetency!]!,
-    description: String!,
-    field: String,
-    language: String,
-    name: String!,
-    schedule: [Event!],
-    type: String!
-  }
-
-  type Program {
-    code: String!,
-    name: String!
-  }
-
-  type Partner {
-    abbreviation: String,
-    banner: String,
-    code: String!,
-    description: String,
-    name: String!,
-    website: String,
-    courses: [Course!]
-  }
-
-  type SignInResponse {
-    token: String!
-  }
-
-  type User {
-    displayName: String!
-  }
-
-  type Query {
-    courses(offset: Int, limit: Int): [Course!]!,
-    course(code: String!): Course,
-    me: User,
-    partners(limit: Int): [Partner!]!,
-    partner(code: String!): Partner,
-    programs(limit: Int): [Program!]!,
-    program(code: String!): Program
-  }
-
-  type Mutation {
-    signIn(email: String!, password: String!): SignInResponse!,
-    signOut: Boolean,
-    signUp(firstName: String!, lastName: String!, email: String!, password: String!): Boolean
-  }
-`;
+import typeDefs from './schema/schema.js';
 
 const resolvers = {
   Query: {
@@ -116,17 +46,72 @@ const resolvers = {
     me(_parent, _args, _context, _info) {
       return { displayName: 'Sébastien' };
     },
-    programs(_parent, args, _context, _info) {
-      return programs.slice(0, args.limit ?? programs.length);
+    async programs(_parent, args, _context, _info) {
+      const programs = await Program.find();
+
+      const start = args.offset ?? 0;
+      const end = start + (args.limit ?? programs.length);
+      return programs.slice(start, end);
     },
-    program(_parent, args, _context, _info) {
-      return programs.find(p => p.code === args.code);
+    async program(_parent, args, _context, _info) {
+      const program = await Program.findOne({ code: args.code });
+      return program;
     },
-    partners(_parent, args, _context, _info) {
-      return partners.slice(0, args.limit ?? partners.length);
+    async partners(_parent, args, _context, _info) {
+      const partners = await Partner.find();
+
+      const start = args.offset ?? 0;
+      const end = start + (args.limit ?? partners.length);
+      return partners.slice(start, end);
     },
-    partner(_parent, args, _context, _info) {
-      return partners.find(p => p.code === args.code);
+    async partner(_parent, args, _context, _info) {
+      const pipeline = [];
+      const project = {
+        abbreviation: 1,
+        code: 1,
+        courses: {
+          banner: 1,
+          code: 1,
+          name: 1,
+          type: 1
+        },
+        description: 1,
+        logo: 1,
+        name: 1,
+        website: 1
+      };
+
+      // Step 1:
+      // Select the partner corresponding to the request
+      pipeline.push({ $match: { 'code': args.code } });
+
+      // Step 2:
+      // Retrieve all the published and non-archived courses associated to this partner
+      pipeline.push({
+        $lookup: {
+          from: 'courses',
+          let: { partnerId: '$_id' },
+          pipeline: [{ $match: { $and: [
+            { $expr: { $in: ['$$partnerId', { $ifNull: ['$partners', []] }] } },
+            { published: { $exists: true } },
+            { archived: { $exists: false } },
+            { $expr: { $ne: ['$visibility', 'private'] } }
+          ] } }],
+          as: 'courses'
+        }
+      });
+
+      // Step 3:
+      // Select the fields to keep for the returned partners
+      pipeline.push({ $project: project });
+
+      // Retrieve the partners satisfying the conditions defined hereabove
+      const partners = await Partner.aggregate(pipeline);
+      if (partners?.length === 1) {
+        return partners[0];
+      }
+
+      throw new UserInputError('Partner not found.');
     }
   },
   Mutation: {
