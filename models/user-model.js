@@ -45,6 +45,12 @@ const UserSchema = new Schema({
     default: '',
     validate: [validateLocalStrategyEmail, 'Please fill a valid email address']
   },
+  emailConfirmationToken: {
+    type: String
+  },
+  emailConfirmed: {
+    type: Date
+  },
   username: {
     type: String,
     unique: 'Username already exists',
@@ -101,6 +107,10 @@ UserSchema.pre('save', function (next) {
   next();
 });
 
+UserSchema.methods.authenticate = function (password) {
+  return this.password === this.hashPassword(password);
+};
+
 UserSchema.methods.hashPassword = function (password) {
   if (!this.salt || !password) {
     return password;
@@ -108,8 +118,11 @@ UserSchema.methods.hashPassword = function (password) {
   return crypto.pbkdf2Sync(password, Buffer.from(this.salt, 'base64'), 10000, 64, 'SHA1').toString('base64');
 };
 
-UserSchema.methods.authenticate = function (password) {
-  return this.password === this.hashPassword(password);
+UserSchema.methods.updateEmail = function (email) {
+  this.email = email;
+
+  delete this.emailConfirmed;
+  this.emailConfirmationToken = crypto.randomBytes(20).toString('hex');
 };
 
 export default mongoose.model('User', UserSchema);
