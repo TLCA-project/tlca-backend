@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const Schema = mongoose.Schema;
 
-const CompetencySchema = new Schema({
+const ProgramSchema = new Schema({
   code: {
     type: String,
     trim: true,
@@ -15,23 +15,6 @@ const CompetencySchema = new Schema({
     trim: true,
     required: 'Name cannot be blank.'
   },
-  description: {
-    type: String
-  },
-  type: {
-    type: String,
-    enum: ['theoretical', 'practical']
-  },
-  public: {
-    type: Boolean
-  },
-  partners: {
-    type: [{
-      type: Schema.ObjectId,
-      ref: 'Partner'
-    }],
-    default: undefined
-  },
   created: {
     type: Date,
     default: Date.now
@@ -42,4 +25,4 @@ const CompetencySchema = new Schema({
   }
 });
 
-export default mongoose.model('Competency', CompetencySchema);
+export default mongoose.model('Program', ProgramSchema);
