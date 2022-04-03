@@ -1,4 +1,5 @@
 import { ApolloServer } from 'apollo-server';
+import jwt from 'jsonwebtoken';
 import typeDefs from './data/schema.js';
 import resolvers from './data/resolvers.js';
 import mongoose from 'mongoose';
@@ -18,8 +19,16 @@ db.on('error', () => {
 });
 
 // Configure functions for the GraphQL authentication.
-const getUser = function(_token) {
-  return { loggedIn: true };
+const getUser = function(token) {
+  if (token) {
+    try {
+      token = token.split(' ')[1];
+      return jwt.verify(token, process.env.JWT_SECRET);
+    }
+    catch (err) {
+      return { error: true, msg: 'Session invalid' };
+    }
+  }
 };
 
 // Create and configure the Apollo server.

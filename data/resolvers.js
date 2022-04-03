@@ -40,8 +40,22 @@ const resolvers = {
 
       return course;
     },
-    me(_parent, _args, _context, _info) {
-      return { displayName: 'Sébastien' };
+    async me(_parent, _args, context, _info) {
+      if (!context.user) {
+        return null;
+      }
+
+      const user = await User.findOne({ _id: context.user.id });
+      if (!user) {
+        throw new AuthenticationError('You must be logged in.');
+      }
+
+      return {
+        displayName: user.displayName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        roles: user.roles
+      };
     },
     async programs(_parent, args, _context, _info) {
       const programs = await Program.find();
@@ -129,7 +143,7 @@ const resolvers = {
       const user = await User.findOne({ email: args.email });
       if (user && user.authenticate(args.password)) {
         return {
-          token: jwt.sign({ id: 'CouCou' }, process.env.JWT_SECRET)
+          token: jwt.sign({ id: user._id }, process.env.JWT_SECRET)
         };
       }
 
