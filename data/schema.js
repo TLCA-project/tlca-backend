@@ -30,6 +30,7 @@ const typeDefs = gql`
         language: String,
         name: String!,
         schedule: [Event!],
+        tags: [String!],
         type: String!
     }
 

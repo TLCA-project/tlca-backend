@@ -12,6 +12,13 @@ const resolvers = {
     async courses(_parent, args, _context, _info) {
       const courses = await Course.find();
 
+      // Generate full path for the banner
+      courses.forEach(course => {
+        if (course.banner) {
+          course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+        }
+      });
+
       const start = args.offset ?? 0;
       const end = start + (args.limit ?? courses.length);
       return courses.slice(start, end);
@@ -24,6 +31,11 @@ const resolvers = {
 
       if (course.schedule) {
         course.schedule = Object.entries(course.schedule).map(([name, date]) => ({ name, date }));
+      }
+
+      // Generate full path for the banner
+      if (course.banner) {
+        course.banner = `/uploads/courses/${course._id}/${course.banner}`;
       }
 
       return course;
