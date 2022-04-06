@@ -3,6 +3,12 @@ import { gql } from 'apollo-server';
 const typeDefs = gql`
     scalar Date
 
+    enum CourseVisibility {
+        PUBLIC
+        INVITE_ONLY
+        PRIVATE
+    }
+
     type Competency {
         code: String!
         name: String!
@@ -27,11 +33,17 @@ const typeDefs = gql`
         competencies: [CourseCompetency!]!
         description: String!
         field: String
+        hasRequestedInvitation: Boolean @auth
+        isCoordinator: Boolean @auth(requires: [ADMIN, TEACHER])
+        isRegistered: Boolean @auth(requires: [ADMIN, STUDENT])
+        isTeacher: Boolean @auth(requires: [ADMIN, TEACHER])
         language: String
         name: String!
+        registration: Registration @auth(requires: [STUDENT])
         schedule: [Event!]
         tags: [String!]
         type: String!
+        visibility: CourseVisibility!
     }
 
     type Program {
@@ -48,6 +60,10 @@ const typeDefs = gql`
         logo: String
         name: String!
         website: String
+    }
+
+    type Registration {
+        date: Date
     }
 
     type SignInResponse {

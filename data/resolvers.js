@@ -5,9 +5,15 @@ import {} from '../models/competency-model.js';
 import Course from '../models/course-model.js';
 import Partner from '../models/partner-model.js';
 import Program from '../models/program-model.js';
+import Registration from '../models/registration-model.js';
 import User from '../models/user-model.js';
 
 const resolvers = {
+  CourseVisibility: {
+    PUBLIC: 'public',
+    INVITE_ONLY: 'invite-only',
+    PRIVATE: 'private'
+  },
   Query: {
     async courses(_parent, args, _context, _info) {
       const courses = await Course.find();
@@ -23,22 +29,117 @@ const resolvers = {
       const end = start + (args.limit ?? courses.length);
       return courses.slice(start, end);
     },
-    async course(_parent, args, _context, _info) {
-      let course = await Course.findOne({ code: args.code });
-      course = await Course.populate(course, [
-        { path: 'competencies.competency', select: 'code description name', model: 'Competency' },
-      ]).then(c => c.toJSON());
+    async course(_parent, args, context, _info) {
+      const roles = {};
+      let userId = null;
+      let user = null;
 
-      if (course.schedule) {
-        course.schedule = Object.entries(course.schedule).map(([name, date]) => ({ name, date }));
+      // Retrieve the course corresponding to the code with elementary fields
+      const course = await Course.findOne({ code: args.code }, '_id coordinator teachers');
+      if (!course) {
+        throw new UserInputError('Course not found.');
       }
 
-      // Generate full path for the banner
-      if (course.banner) {
-        course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+      // Add basic roles if a user is connected
+      // Retrieve the possible registration associated to the course, if any
+      if (context.user && context.user.id) {
+        userId = context.user.id;
+        user = await User.findOne({ _id: userId }, 'roles');
+        if (user) {
+          if (user.roles.includes('teacher')) {
+            roles.isCoordinator = course.coordinator.toString() === userId;
+            roles.isTeacher = (course.teachers && course.teachers.some(t => t.toString() === userId));
+          }
+
+          const registration = await Registration.findOne({ course: course._id, user: context.user.id }, 'invitation');
+          roles.hasRequestedInvitation = registration?.invitation === 'requested';
+          roles.isRegistered = user.roles.includes('student') && !!registration?.invitation;
+        }
       }
 
-      return course;
+      const pipeline = [];
+      const project = {
+        code: 1,
+        colophon: 1,
+        competencies: {
+          competency: 1,
+          category: 1,
+          subcategory: 1
+        },
+        description: 1,
+        field: 1,
+        language: 1,
+        name: 1,
+        schedule: 1,
+        tags: 1,
+        type: 1,
+        visibility: 1
+      };
+
+      // Step 1:
+      // Select the course corresponding to the request
+      pipeline.push({ $match: { 'code': args.code } });
+
+      // Step 2:
+      // Select the registration associated to this course
+      // for registered students or those that requested an invite
+      if (userId && user && user.roles.includes('student') && (roles.isRegistered || roles.hasRequestedInvitation)) {
+        const registrationsPipeline = [];
+
+        // Get all the registrations to this course
+        registrationsPipeline.push({ $match: { $expr: { $eq: ['$course', course._id] } } });
+
+        // Only keep the registration of the user
+        registrationsPipeline.push({ $match: { $expr: { $eq: ['$user', user._id] } } });
+
+        // Retrieve the registrations satisfying the conditions defined hereabove
+        pipeline.push({ $lookup: {
+          from: 'registrations',
+          pipeline: registrationsPipeline,
+          as: 'registration'
+        } });
+
+        pipeline.push({ $unwind: {
+          path: '$registration',
+          preserveNullAndEmptyArrays: true
+        } });
+
+        project.registration = {
+          _id: 1,
+          date: 1,
+        };
+      }
+
+      // Step 3:
+      // Select the fields to keep for the returned courses
+      pipeline.push({ $project: project });
+
+      // Retrieve the courses satisfying the conditions defined hereabove
+      const courses = await Course.aggregate(pipeline);
+      if (courses?.length === 1) {
+        let course = courses[0];
+
+        course = await Course.populate(course, [
+          { path: 'competencies.competency', select: 'code description name', model: 'Competency' },
+        ]);
+
+        // Restructure the format of the schedule
+        if (course.schedule) {
+          course.schedule = Object.entries(course.schedule).map(([name, date]) => ({ name, date }));
+        }
+
+        // Generate full path for the banner
+        if (course.banner) {
+          course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+        }
+
+        // Add roles related to user, if any
+        Object.assign(course, roles);
+
+        return course;
+      }
+
+      throw new UserInputError('Course not found.');
     },
     async me(_parent, _args, context, _info) {
       if (!context.user) {
@@ -140,10 +241,10 @@ const resolvers = {
         throw new UserInputError('MISSING_FIELDS');
       }
 
-      const user = await User.findOne({ email: args.email });
+      const user = await User.findOne({ email: args.email }, '_id password roles salt');
       if (user && user.authenticate(args.password)) {
         return {
-          token: jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+          token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET)
         };
       }
 
