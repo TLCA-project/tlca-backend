@@ -1,5 +1,6 @@
-import { UserInputError } from 'apollo-server';
+import { AuthenticationError, UserInputError } from 'apollo-server';
 import jwt from 'jsonwebtoken';
+import { DateTime } from 'luxon'
 
 import {} from '../models/competency-model.js';
 import Course from '../models/course-model.js';
@@ -8,11 +9,124 @@ import Program from '../models/program-model.js';
 import Registration from '../models/registration-model.js';
 import User from '../models/user-model.js';
 
+function isCoordinator(course, context) {
+  const userId = context.user?.id;
+  return (course.coordinator._id || course.coordinator).toString() === userId;
+}
+
+function isTeacher(course, context) {
+  const userId = context.user?.id;
+  return course.teachers && course.teachers.some(t => (t._id || t).toString() === userId);
+}
+
+function canEnroll(schedule, now) {
+  if (schedule) {
+    const isAfter = (dt) => dt > now;
+    const isSameOrBefore = (dt) => dt <= now;
+
+    const events = [{
+      field: 'registrationsStart',
+      check: isAfter
+    }, {
+      field: 'registrationsEnd',
+      check: isSameOrBefore
+    }, {
+      field: 'evaluationsEnd',
+      check: isSameOrBefore
+    }, {
+      field: 'end',
+      check: isSameOrBefore
+    }];
+
+    for (const event of events) {
+      if (schedule[event.field] && event.check(DateTime.fromISO(schedule[event.field]))) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 const resolvers = {
   CourseVisibility: {
     PUBLIC: 'public',
     INVITE_ONLY: 'invite-only',
     PRIVATE: 'private'
+  },
+  CourseLoadType: {
+    WEEKLY: 'weekly',
+    THEO_PRAC: 'theo+prac'
+  },
+  RegistrationInvite: {
+    REQUESTED: 'requested',
+    SENT: 'sent'
+  },
+  Course: {
+    async hasRequestedInvite(parent, _args, context, _info) {
+      const registration = await Registration.findOne({ course: parent._id, user: context.user.id });
+      return registration?.invite === 'requested';
+    },
+    isCoordinator(parent, _args, context, _info) {
+      return parent.coordinator.id === context.user.id;
+    },
+    async isRegistered(parent, _args, context, _info) {
+      const registration = await Registration.findOne({ course: parent._id, user: context.user.id });
+      return !!registration && !registration.invite;
+    },
+    isTeacher(parent, _args, context, _info) {
+      const userId = context.user.id;
+      const teachers = parent.teachers;
+      return teachers && teachers.some((t) => t.id === userId);
+    },
+    async partners(parent, _args, _context, _info) {
+      return await Partner.find({ _id: { $in: parent.partners } })
+    },
+    async registration(parent, _args, context, _info) {
+      return await Registration.findOne({ course: parent._id, user: context.user.id });
+    },
+    team(parent, _args, _context, _info) {
+      const team = [];
+
+      // Add all the teachers
+      const teachers = parent.teachers;
+      if (teachers) {
+        team.push(...teachers);
+      }
+
+      // Add the coordinator if he/she is not also a teacher
+      const coordinator = parent.coordinator;
+      if (!team.find(t => (t._id || t).toString() === (coordinator._id || coordinator).toString())) {
+        team.push(coordinator);
+      }
+
+      return team;
+    }
+  },
+  Partner: {
+    async courses(parent, _args, _context, _info) {
+      const pipeline = [];
+
+      // Only retrieve courses from this partner
+      // that are published, not archived and are not private
+      pipeline.push({ $match: { $and: [
+        { $expr: { $in: [parent._id, { $ifNull: ['$partners', []] }] } },
+        { published: { $exists: true } },
+        { archived: { $exists: false } },
+        { $expr: { $ne: ['$visibility', 'private'] } }
+      ] } });
+
+      const courses = await Course.aggregate(pipeline);
+
+      // Generate full path for the banner
+      courses.forEach(course => {
+        if (course.banner) {
+          course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+        }
+      });
+
+      return courses;
+    }
   },
   Query: {
     async courses(_parent, args, _context, _info) {
@@ -29,117 +143,35 @@ const resolvers = {
       const end = start + (args.limit ?? courses.length);
       return courses.slice(start, end);
     },
-    async course(_parent, args, context, _info) {
-      const roles = {};
-      let userId = null;
-      let user = null;
-
-      // Retrieve the course corresponding to the code with elementary fields
-      const course = await Course.findOne({ code: args.code }, '_id coordinator teachers');
+    async course(_parent, args, _context, _info) {
+      let course = await Course.findOne({ code: args.code });
       if (!course) {
         throw new UserInputError('Course not found.');
       }
 
-      // Add basic roles if a user is connected
-      // Retrieve the possible registration associated to the course, if any
-      if (context.user && context.user.id) {
-        userId = context.user.id;
-        user = await User.findOne({ _id: userId }, 'roles');
-        if (user) {
-          if (user.roles.includes('teacher')) {
-            roles.isCoordinator = course.coordinator.toString() === userId;
-            roles.isTeacher = (course.teachers && course.teachers.some(t => t.toString() === userId));
-          }
+      course = await Course.populate(course, [
+        { path: 'competencies.competency', select: 'code description name', model: 'Competency' },
+        { path: 'coordinator', select: '_id displayName', model: 'User' },
+        { path: 'teachers', select: '_id displayName', model: 'User' },
+      ]).then(c => c.toJSON());
 
-          const registration = await Registration.findOne({ course: course._id, user: context.user.id }, 'invitation');
-          roles.hasRequestedInvitation = registration?.invitation === 'requested';
-          roles.isRegistered = user.roles.includes('student') && !!registration?.invitation;
-        }
+      // Generate full path for the banner
+      if (course.banner) {
+        course.banner = `/uploads/courses/${course._id}/${course.banner}`;
       }
 
-      const pipeline = [];
-      const project = {
-        code: 1,
-        colophon: 1,
-        competencies: {
-          competency: 1,
-          category: 1,
-          subcategory: 1
-        },
-        description: 1,
-        field: 1,
-        language: 1,
-        name: 1,
-        schedule: 1,
-        tags: 1,
-        type: 1,
-        visibility: 1
-      };
-
-      // Step 1:
-      // Select the course corresponding to the request
-      pipeline.push({ $match: { 'code': args.code } });
-
-      // Step 2:
-      // Select the registration associated to this course
-      // for registered students or those that requested an invite
-      if (userId && user && user.roles.includes('student') && (roles.isRegistered || roles.hasRequestedInvitation)) {
-        const registrationsPipeline = [];
-
-        // Get all the registrations to this course
-        registrationsPipeline.push({ $match: { $expr: { $eq: ['$course', course._id] } } });
-
-        // Only keep the registration of the user
-        registrationsPipeline.push({ $match: { $expr: { $eq: ['$user', user._id] } } });
-
-        // Retrieve the registrations satisfying the conditions defined hereabove
-        pipeline.push({ $lookup: {
-          from: 'registrations',
-          pipeline: registrationsPipeline,
-          as: 'registration'
-        } });
-
-        pipeline.push({ $unwind: {
-          path: '$registration',
-          preserveNullAndEmptyArrays: true
-        } });
-
-        project.registration = {
-          _id: 1,
-          date: 1,
-        };
+      // Rename the 'id' field of the coordinator and teachers
+      course.coordinator.id = course.coordinator._id.toString();
+      if (course.teachers) {
+        course.teachers.forEach(t => t.id = t._id.toString());
       }
 
-      // Step 3:
-      // Select the fields to keep for the returned courses
-      pipeline.push({ $project: project });
-
-      // Retrieve the courses satisfying the conditions defined hereabove
-      const courses = await Course.aggregate(pipeline);
-      if (courses?.length === 1) {
-        let course = courses[0];
-
-        course = await Course.populate(course, [
-          { path: 'competencies.competency', select: 'code description name', model: 'Competency' },
-        ]);
-
-        // Restructure the format of the schedule
-        if (course.schedule) {
-          course.schedule = Object.entries(course.schedule).map(([name, date]) => ({ name, date }));
-        }
-
-        // Generate full path for the banner
-        if (course.banner) {
-          course.banner = `/uploads/courses/${course._id}/${course.banner}`;
-        }
-
-        // Add roles related to user, if any
-        Object.assign(course, roles);
-
-        return course;
+      // Restructure the format of the schedule
+      if (course.schedule) {
+        course.schedule = Object.entries(course.schedule).map(([name, date]) => ({ name, date }));
       }
 
-      throw new UserInputError('Course not found.');
+      return course;
     },
     async me(_parent, _args, context, _info) {
       if (!context.user) {
@@ -152,90 +184,182 @@ const resolvers = {
       }
 
       return {
+        id: user._id.toString(),
         displayName: user.displayName,
         firstName: user.firstName,
         lastName: user.lastName,
         roles: user.roles
       };
     },
-    async programs(_parent, args, _context, _info) {
-      const programs = await Program.find();
-
-      const start = args.offset ?? 0;
-      const end = start + (args.limit ?? programs.length);
-      return programs.slice(start, end);
-    },
-    async program(_parent, args, _context, _info) {
-      const program = await Program.findOne({ code: args.code });
-      return program;
-    },
     async partners(_parent, args, _context, _info) {
-      const partners = await Partner.find();
+      let partners = await Partner.find();
 
       const start = args.offset ?? 0;
       const end = start + (args.limit ?? partners.length);
-      return partners.slice(start, end);
-    },
-    async partner(_parent, args, _context, _info) {
-      const pipeline = [];
-      const project = {
-        _id: 1,
-        abbreviation: 1,
-        code: 1,
-        courses: {
-          banner: 1,
-          code: 1,
-          name: 1,
-          type: 1
-        },
-        description: 1,
-        logo: 1,
-        name: 1,
-        website: 1
-      };
 
-      // Step 1:
-      // Select the partner corresponding to the request
-      pipeline.push({ $match: { 'code': args.code } });
+      partners = partners.slice(start, end);
 
-      // Step 2:
-      // Retrieve all the published and non-archived courses associated to this partner
-      pipeline.push({
-        $lookup: {
-          from: 'courses',
-          let: { partnerId: '$_id' },
-          pipeline: [{ $match: { $and: [
-            { $expr: { $in: ['$$partnerId', { $ifNull: ['$partners', []] }] } },
-            { published: { $exists: true } },
-            { archived: { $exists: false } },
-            { $expr: { $ne: ['$visibility', 'private'] } }
-          ] } }],
-          as: 'courses'
+      // Generate full path for the banner
+      partners.forEach(partner => {
+        if (partner.banner) {
+          partner.banner = `/uploads/partners/${partner._id}/${partner.banner}`;
         }
       });
 
-      // Step 3:
-      // Select the fields to keep for the returned partners
-      pipeline.push({ $project: project });
-
-      // Retrieve the partners satisfying the conditions defined hereabove
-      const partners = await Partner.aggregate(pipeline);
-      if (partners?.length === 1) {
-        const partner = partners[0];
-
-        // Generate full path for the logo
-        if (partner.logo) {
-          partner.logo = `/uploads/partners/${partner._id}/${partner.logo}`;
-        }
-        delete partner._id;
-
-        return partner;
+      return partners;
+    },
+    async partner(_parent, args, _context, _info) {
+      const partner = await Partner.findOne({ code: args.code });
+      if (!partner) {
+        throw new UserInputError('Partner not found.');
       }
 
-      throw new UserInputError('Partner not found.');
+      // Generate full path for the banner
+      if (partner.banner) {
+        partner.banner = `/uploads/partners/${partner._id}/${partner.banner}`;
+      }
+
+      // Generate full path for the logo
+      if (partner.logo) {
+        partner.logo = `/uploads/partners/${partner._id}/${partner.logo}`;
+      }
+
+      return partner;
+    },
+    async programs(_parent, args, _context, _info) {
+      let programs = await Program.find();
+
+      const start = args.offset ?? 0;
+      const end = start + (args.limit ?? programs.length);
+
+      programs = programs.slice(start, end);
+
+      // Generate full path for the banner
+      programs.forEach(program => {
+        if (program.banner) {
+          program.banner = `/uploads/programs/${program._id}/${program.banner}`;
+        }
+      });
+
+      return programs;
+    },
+    async program(_parent, args, _context, _info) {
+      let program = await Program.findOne({ code: args.code });
+      if (!program) {
+        throw new UserInputError('Program not found.');
+      }
+
+      // Generate full path for the program
+      if (program.banner) {
+        program.banner = `/uploads/programs/${program._id}/${program.banner}`;
+      }
+
+      if (_info.operation.selectionSet.selections[0].selectionSet.selections.find(s => s.name.value === 'courses')) {
+        program = await Program.populate(program, [
+          { path: 'courses', model: 'Course' },
+        ]);
+
+        // Generate full path for the banner
+        program.courses.forEach(course => {
+          if (course.banner) {
+            course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+          }
+        });
+      }
+
+      return program;
     }
   },
   Mutation: {
+    async register(_parent, args, context, _info) {
+      const course = await Course.findOne({ code: args.code });
+      if (!course) {
+        throw new UserInputError('Course not found.');
+      }
+
+      // Can only register to a published course with 'public' visibility
+      if (!course.published || course.archived || course.visibility !== 'public') {
+        throw new UserInputError('REGISTRATION_FAILED');
+      }
+
+      // Coordinator and teacher cannot register to their own course
+      if (isCoordinator(course, context) || isTeacher(course, context)) {
+        throw new UserInputError('REGISTRATION_FAILED');
+      }
+
+      // Can only register if it agrees with the schedule of the course
+      const now = DateTime.now();
+      if (!canEnroll(course.schedule, now)) {
+        throw new UserInputError('REGISTRATION_FAILED');
+      }
+
+      // Check whether there is not already a registration
+      const userId = context.user.id;
+      const registration = await Registration.findOne({ course: course._id, user: userId });
+      if (registration) {
+        throw new UserInputError('REGISTRATION_FAILED');
+      }
+
+      // Create a new registration for the user
+      try {
+        const registration = new Registration({
+          course: course._id,
+          date: now,
+          user: userId,
+        });
+        course.registration = await registration.save();
+
+        return course;
+      }
+      catch (err) {}
+
+      throw new UserInputError('REGISTRATION_FAILED');
+    },
+    async requestInvite(_parent, args, context, _info) {
+      const course = await Course.findOne({ code: args.code });
+      if (!course) {
+        throw new UserInputError('Course not found.');
+      }
+
+      // Can only request an invite for a published course with 'invite-only' visibility
+      if (!course.published || course.archived || course.visibility !== 'invite-only') {
+        throw new UserInputError('INVITE_REQUEST_FAILED');
+      }
+
+      // Coordinator and teacher cannot request an invite for their own course
+      if (isCoordinator(course, context) || isTeacher(course, context)) {
+        throw new UserInputError('INVITE_REQUEST_FAILED');
+      }
+
+      // Can only request an invite if it agrees with the schedule of the course
+      const now = DateTime.now();
+      if (!canEnroll(course.schedule, now)) {
+        throw new UserInputError('INVITE_REQUEST_FAILED');
+      }
+
+      // Check whether there is not already a registration
+      const userId = context.user.id;
+      const registration = await Registration.findOne({ course: course._id, user: userId });
+      if (registration) {
+        throw new UserInputError('INVITE_REQUEST_FAILED');
+      }
+
+      // Create a new registration for the user, representing the invite request
+      try {
+        const registration = new Registration({
+          course: course._id,
+          date: now,
+          invite: 'requested',
+          user: userId
+        });
+        course.registration = await registration.save();
+
+        return course;
+      }
+      catch (err) {}
+
+      throw new UserInputError('INVITE_REQUEST_FAILED');
+    },
     async signIn(_parent, args, _context, _info) {
       if (!args.email || !args.password) {
         throw new UserInputError('MISSING_FIELDS');

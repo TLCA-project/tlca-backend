@@ -21,7 +21,7 @@ const RegistrationSchema = new Schema({
     type: Date,
     default: Date.now
   },
-  invitation: {
+  invite: {
     type: String,
     enum: ['requested', 'sent']
   },
