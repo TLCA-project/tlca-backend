@@ -15,6 +15,17 @@ const ProgramSchema = new Schema({
     trim: true,
     required: 'Name cannot be blank.'
   },
+  description: {
+    type: String,
+    required: 'Description cannot be blank.'
+  },
+  courses: {
+    type: [{
+      type: Schema.ObjectId,
+      ref: 'Course'
+    }],
+    default: undefined
+  },
   created: {
     type: Date,
     default: Date.now

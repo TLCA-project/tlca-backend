@@ -59,6 +59,27 @@ const ProgressStepSchema = new Schema({
   _id: false
 });
 
+const ScheduleSchema = new Schema({
+  start: {
+    type: Date
+  },
+  end: {
+    type: Date
+  },
+  registrationsStart: {
+    type: Date
+  },
+  registrationsEnd: {
+    type: Date
+  },
+  evaluationsEnd: {
+    type: Date
+  }
+}, {
+  id: false,
+  _id: false
+});
+
 const CourseSchema = new Schema({
   code: {
     type: String,
@@ -81,21 +102,8 @@ const CourseSchema = new Schema({
     type: String
   },
   schedule: {
-    start: {
-      type: Date
-    },
-    end: {
-      type: Date
-    },
-    registrationsStart: {
-      type: Date
-    },
-    registrationsEnd: {
-      type: Date
-    },
-    evaluationsEnd: {
-      type: Date
-    }
+    type: ScheduleSchema,
+    default: undefined
   },
   span: {
     type: Number,
