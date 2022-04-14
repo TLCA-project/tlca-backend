@@ -49,18 +49,28 @@ function canEnroll(schedule, now) {
 }
 
 const resolvers = {
-  CourseVisibility: {
-    PUBLIC: 'public',
-    INVITE_ONLY: 'invite-only',
-    PRIVATE: 'private'
-  },
   CourseLoadType: {
     WEEKLY: 'weekly',
     THEO_PRAC: 'theo+prac'
   },
+  CourseType: {
+    PROJECT: 'project',
+    TRAINING: 'training',
+    UCOURSE: 'ucourse',
+    UNIT: 'unit'
+  },
+  ProgramType: {
+    TRAINING: 'training',
+    UPROGRAM: 'uprogram'
+  },
   RegistrationInvite: {
     REQUESTED: 'requested',
     SENT: 'sent'
+  },
+  Visibility: {
+    PUBLIC: 'public',
+    INVITE_ONLY: 'invite-only',
+    PRIVATE: 'private'
   },
   Course: {
     async hasRequestedInvite(parent, _args, context, _info) {
@@ -80,7 +90,7 @@ const resolvers = {
       return teachers && teachers.some((t) => t.id === userId);
     },
     async partners(parent, _args, _context, _info) {
-      return await Partner.find({ _id: { $in: parent.partners } })
+      return await Partner.find({ _id: { $in: parent.partners } });
     },
     async registration(parent, _args, context, _info) {
       return await Registration.findOne({ course: parent._id, user: context.user.id });
@@ -128,24 +138,183 @@ const resolvers = {
       return courses;
     }
   },
+  Program: {
+    async partners(parent, _args, _context, _info) {
+      const partners = [];
+
+      if (parent.courses) {
+        parent.courses.forEach(c => {
+          partners.push(...c.partners);
+        });
+      }
+
+      return await Partner.find({ _id: { $in: partners } });
+    }
+  },
   Query: {
-    async courses(_parent, args, _context, _info) {
-      const courses = await Course.find();
+    async courses(_parent, args, context, _info) {
+      const pipeline = [];
+      const statusMatch = {
+        $or: [{ $and: [{ published: { $exists: true } }, { archived: { $exists: false } }] }]
+      };
+      const visibilityMatch = {
+        $or: [{ $expr: { $ne: ['$visibility', 'private'] } }]
+      };
 
-      // Generate full path for the banner
-      courses.forEach(course => {
-        if (course.banner) {
-          course.banner = `/uploads/courses/${course._id}/${course.banner}`;
+      // Step 1:
+      // If a user is connected,
+      // retrieve all the registrations associated to each course
+      if (context.user) {
+        pipeline.push({ $lookup: {
+          from: 'registrations',
+          localField: '_id',
+          foreignField: 'course',
+          as: 'registrations'
+        } });
+      }
+
+      // Step 2:
+      // If a user is connected,
+      // add derived fields depending on his/her roles
+      if (context.user) {
+        const addFields = {};
+        const roles = context.user.roles;
+
+        // Teachers can be the coordinator or a teacher of a course
+        if (roles.includes('teacher')) {
+          addFields.isCoordinator = { $eq: ['$coordinator', context.user.id] };
+          addFields.isTeacher = { $anyElementTrue: { $map: {
+            input: { $ifNull: ['$teachers', []] },
+            as: 'teacher',
+            in: { $eq: ['$$teacher', context.user.id] }
+          } } };
         }
-      });
 
-      const start = args.offset ?? 0;
-      const end = start + (args.limit ?? courses.length);
-      return courses.slice(start, end);
+        // Students can be registered to a course
+        if (roles.includes('student')) {
+          addFields.isRegistered = { $anyElementTrue: { $map: {
+            input: '$registrations',
+            as: 'registration',
+            in: { $and: [{ $eq: ['$$registration.user', context.user.id] }, { $eq: [{ $type: '$$registration.invite' }, 'missing'] }] }
+          } } };
+        }
+
+        if (Object.keys(addFields).length) {
+          pipeline.push({ $addFields: addFields });
+        }
+      }
+
+      // Step 3:
+      // If a user is connected
+      // filter courses by status
+      if (context.user) {
+        const roles = context.user.roles;
+
+        // Teachers can access their own non-published and archived courses
+        if (roles.includes('teacher')) {
+          const teacherMatch = { $and: [] };
+          if (args.published) {
+            teacherMatch.$and.push({ $and: [{ published: { $exists: true } }, { archived: { $exists: true } }] });
+          } else {
+            teacherMatch.$and.push({ $or: [{ published: { $exists: false } }, { $and: [{ published: { $exists: true } }, { archived: { $exists: true } }] }] });
+          }
+          teacherMatch.$and.push({ $or: [{ isCoordinator: true }, { isTeacher: true }] });
+          statusMatch.$or.push(teacherMatch);
+        }
+
+        // Students can access archived courses
+        if (roles.includes('student')) {
+          statusMatch.$or.push({ $and: [{ archived: { $exists: true } }, { isRegistered: true }] });
+        }
+      }
+
+      // Step 4:
+      // If a user is connected and a 'filter' has been defined,
+      // filter the courses that are returned
+      // and cancel the visibility filter
+      if (context.user && args.filter) {
+        const match = {};
+
+        // Adapt filter and projection according to filter query param
+        switch (req.query.filter) {
+          case 'student': {
+            match.isRegistered = true;
+            visibilityMatch.$or = [];
+            break;
+          }
+
+          case 'teacher': {
+            match.$or = [{ isCoordinator: true }, { isTeacher: true }];
+            visibilityMatch.$or = [];
+            break;
+          }
+        }
+
+        if (Object.keys(match).length) {
+          pipeline.push({ $match: match });
+        }
+      }
+
+      // Step 5:
+      // If a user is connected and a 'role filter' has been defined,
+      // filter the courses that are returned
+      if (context.user && args.role) {
+        const match = {};
+
+        // Adapt filter and projection according to filter query param
+        switch (req.query.role) {
+          case 'coordinator':
+            match.isCoordinator = true;
+            break;
+
+          case 'teacher':
+            match.isTeacher = true;
+            break;
+        }
+
+        if (Object.keys(match).length) {
+          pipeline.push({ $match: match });
+        }
+      }
+
+      pipeline.push({ $set: { 'banner': { $cond: [
+        { $eq: [{ $type: '$banner' },'missing'] },
+        undefined,
+        { $concat: [ '/uploads/courses/', { $toString: '$_id' }, '/', '$banner' ] }
+      ] } } });
+
+      // Step 6:
+      // Filter course by status
+      pipeline.push({ $match: statusMatch });
+
+      // Step 7:
+      // Filter course by visibility
+      if (visibilityMatch.$or.length) {
+        pipeline.push({ $match: visibilityMatch });
+      }
+
+      // Step 8:
+      // Sort the courses by creation dates
+      pipeline.push({ $sort: { created: -1, code: 1 } });
+
+      return await Course.aggregate(pipeline);
+
+      // // Set up offset and limit
+      // const skip = Math.max(0, args.offset ?? 0);
+      // const limit = args.limit ?? undefined;
+
+      // // Retrieve all the courses satisfying the conditions defined hereabove
+      // const courses = await Course.find(filter, null, { skip, limit });
     },
-    async course(_parent, args, _context, _info) {
+    async course(_parent, args, context, _info) {
       let course = await Course.findOne({ code: args.code });
       if (!course) {
+        throw new UserInputError('Course not found.');
+      }
+
+      // If no user is authenticated,
+      // reject the request if the course has not been published or is archived
+      if (!context.user && (!course.published || course.archived || course.visibility === 'private')) {
         throw new UserInputError('Course not found.');
       }
 
@@ -248,6 +417,10 @@ const resolvers = {
       if (!program) {
         throw new UserInputError('Program not found.');
       }
+
+      program = await Program.populate(program, [
+        { path: 'coordinator', select: '_id displayName', model: 'User' },
+      ]).then(c => c.toJSON());
 
       // Generate full path for the program
       if (program.banner) {
