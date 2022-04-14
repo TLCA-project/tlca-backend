@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "cross-env NODE_ENV=development node index.js"
+    "start": "cross-env NODE_ENV=development node index.js",
+    "watch": "cross-env NODE_ENV=development nodemon index.js -e js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
     "validator": "^13.7.0"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "nodemon": "^2.0.15"
   }
 }
