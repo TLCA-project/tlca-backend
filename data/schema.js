@@ -3,20 +3,32 @@ import { gql } from 'apollo-server';
 const typeDefs = gql`
     scalar Date
 
-    enum CourseVisibility {
-        PUBLIC
-        INVITE_ONLY
-        PRIVATE
-    }
-
     enum CourseLoadType {
         WEEKLY
         THEO_PRAC
     }
 
+    enum CourseType {
+        PROJECT
+        TRAINING
+        UCOURSE
+        UNIT
+    }
+
+    enum ProgramType {
+        TRAINING
+        UPROGRAM
+    }
+
     enum RegistrationInvite {
         REQUESTED
         SENT
+    }
+
+    enum Visibility {
+        PUBLIC
+        INVITE_ONLY
+        PRIVATE
     }
 
     type Competency {
@@ -66,15 +78,27 @@ const typeDefs = gql`
         tags: [String!]
         teachers: [User!]
         team: [User!]
-        type: String!
-        visibility: CourseVisibility!
+        type: CourseType!
+        visibility: Visibility!
     }
 
     type Program {
+        banner: String
         code: ID!
+        coordinator: User!
         courses: [Course!]!
         description: String!
+        field: String
+        hasRequestedInvite: Boolean @auth
+        isCoordinator: Boolean @auth(requires: TEACHER)
+        isRegistered: Boolean @auth(requires: STUDENT)
+        language: String
         name: String!
+        partners: [Partner!]
+        registration: Registration @auth
+        tags: [String!]
+        type: ProgramType!
+        visibility: Visibility!
     }
 
     type Partner {
@@ -109,7 +133,7 @@ const typeDefs = gql`
     }
 
     type Query {
-        courses(offset: Int, limit: Int): [Course!]!
+        courses(offset: Int, limit: Int, published: Boolean, filter: String, role: String): [Course!]!
         course(code: ID!): Course
         me: User
         partners(limit: Int): [Partner!]!

@@ -94,8 +94,8 @@ const CourseSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['training', 'ucourse'],
-    default: 'training',
+    enum: ['project', 'training', 'ucourse', 'unit'],
+    default: 'unit',
     required: 'Type cannot be blank.'
   },
   banner: {
