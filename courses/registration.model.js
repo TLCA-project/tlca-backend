@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import validator from 'validator';
 
-const Schema = mongoose.Schema;
+const { Schema } = mongoose;
 
 const validateLocalStrategyEmail = function (email) {
   return validator.isEmail(email, { require_tld: false });

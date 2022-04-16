@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import mongoose from 'mongoose';
 import validator from 'validator';
 
-const Schema = mongoose.Schema;
+const { model, Schema } = mongoose;
 
 const validateLocalStrategyProperty = function (property) {
   return ((this.provider !== 'local' && !this.updated) || property.length);
@@ -125,4 +125,4 @@ UserSchema.methods.updateEmail = function (email) {
   this.emailConfirmationToken = crypto.randomBytes(20).toString('hex');
 };
 
-export default mongoose.model('User', UserSchema);
+export default model('User', UserSchema);

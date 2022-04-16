@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { getPathCompleter } from '../lib/models.js';
 
-const Schema = mongoose.Schema;
+const { Schema } = mongoose;
 
 const CompetencySchema = new Schema({
   competency: {
@@ -210,5 +211,11 @@ const CourseSchema = new Schema({
     ref: 'User'
   }
 }, { usePushEach: true });
+
+// Generate full path for the banner.
+const pathCompleter = getPathCompleter('courses');
+CourseSchema.post('aggregate', pathCompleter);
+CourseSchema.post('find', pathCompleter);
+CourseSchema.post('findOne', pathCompleter);
 
 export default mongoose.model('Course', CourseSchema);
