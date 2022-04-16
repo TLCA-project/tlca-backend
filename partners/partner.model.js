@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { getPathCompleter } from '../lib/models.js';
 
-const Schema = mongoose.Schema;
+const { model, Schema } = mongoose;
 
 const PartnerSchema = new Schema({
   code: {
@@ -49,4 +50,10 @@ const PartnerSchema = new Schema({
   }
 });
 
-export default mongoose.model('Partner', PartnerSchema);
+// Generate full path for the banner and the logo.
+const pathCompleter = getPathCompleter('partners');
+PartnerSchema.post('aggregate', pathCompleter);
+PartnerSchema.post('find', pathCompleter);
+PartnerSchema.post('findOne', pathCompleter);
+
+export default model('Partner', PartnerSchema);

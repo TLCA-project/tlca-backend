@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import { getPathCompleter } from '../lib/models.js';
 
-const Schema = mongoose.Schema;
+const { model, Schema } = mongoose;
 
 const ProgramSchema = new Schema({
   code: {
@@ -67,4 +68,10 @@ const ProgramSchema = new Schema({
   }
 });
 
-export default mongoose.model('Program', ProgramSchema);
+// Generate full path for the banner.
+const pathCompleter = getPathCompleter('programs');
+ProgramSchema.post('aggregate', pathCompleter);
+ProgramSchema.post('find', pathCompleter);
+ProgramSchema.post('findOne', pathCompleter);
+
+export default model('Program', ProgramSchema);

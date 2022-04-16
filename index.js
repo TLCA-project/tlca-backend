@@ -1,77 +1,16 @@
 import { ApolloServer } from 'apollo-server';
-import dotenv from 'dotenv'
-import { makeExecutableSchema } from '@graphql-tools/schema';
-import { mapSchema, getDirective, MapperKind } from '@graphql-tools/utils';
+import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 
-import typeDefs from './data/schema.js';
-import resolvers from './data/resolvers.js';
-import { defaultFieldResolver } from 'graphql';
+import { schema, models } from './data/schema.js';
+import { connectDB } from './lib/mongoose.js';
 
-dotenv.config()
+dotenv.config();
 
-// Configure the access to the MongoDB database.
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+// Connect to MongoDB.
+connectDB(process.env.MONGODB_URI);
 
-const db = mongoose.connection;
-db.on('error', () => {
-  console.error('Error while connecting to DB');
-});
-
-// Configure functions for the GraphQL authentication.
-const authDirective = function(directiveName) {
-  const typeDirectiveArgumentMaps = {};
-  return {
-    authDirectiveTypeDefs: `directive @${directiveName}(
-      requires: [Role]
-    ) on OBJECT | FIELD_DEFINITION
-
-    enum Role {
-        ADMIN
-        MANAGER
-        TEACHER
-        STUDENT
-        USER
-    }`,
-    authDirectiveTransformer: (schema) => {
-      return mapSchema(schema, {
-        [MapperKind.TYPE]: (type) => {
-          const authDirective = getDirective(schema, type, directiveName)?.[0]
-          if (authDirective) {
-            typeDirectiveArgumentMaps[type.name] = authDirective;
-          }
-          return undefined;
-        },
-        [MapperKind.OBJECT_FIELD]: (fieldConfig, _fieldName, typeName) => {
-          const authDirective = getDirective(schema, fieldConfig, directiveName)?.[0] ?? typeDirectiveArgumentMaps[typeName];
-          if (authDirective) {
-            const { resolve = defaultFieldResolver } = fieldConfig;
-            fieldConfig.resolve = function (source, args, context, info) {
-              if (!context.user) {
-                throw new Error('Not authorized');
-              }
-
-              const { requires } = authDirective;
-              if (requires) {
-                if (!requires.some(role => context.user.roles.includes(role.toLowerCase()))) {
-                  throw new Error('Not authorized');
-                }
-              }
-
-              return resolve(source, args, context, info);
-            }
-            return fieldConfig;
-          }
-        }
-      });
-    }
-  };
-};
-
+// Extract the user from the token for authentication.
 const getUser = function(token) {
   if (token) {
     try {
@@ -85,23 +24,16 @@ const getUser = function(token) {
 };
 
 // Create and configure the Apollo server.
-const { authDirectiveTypeDefs, authDirectiveTransformer } = authDirective('auth');
-
-let schema = makeExecutableSchema({
-  typeDefs: [
-    authDirectiveTypeDefs,
-    typeDefs
-  ],
-  resolvers
-});
-schema = authDirectiveTransformer(schema);
-
 const server = new ApolloServer({
   schema,
   context: ({ req }) => {
     const token = req.headers.authorization || '';
     const user = getUser(token);
-    return { user };
+    return {
+      env: process.env,
+      models,
+      user
+    };
   }
 });
 
