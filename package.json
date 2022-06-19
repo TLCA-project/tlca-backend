@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "cross-env NODE_ENV=development node index.js",
+    "test": "cross-env NODE_ENV=test mocha",
     "watch": "cross-env NODE_ENV=development nodemon index.js -e js"
   },
   "keywords": [],
@@ -23,7 +24,9 @@
     "validator": "^13.7.0"
   },
   "devDependencies": {
+    "chai": "^4.3.6",
     "cross-env": "^7.0.3",
+    "mocha": "^9.2.2",
     "nodemon": "^2.0.15"
   }
 }

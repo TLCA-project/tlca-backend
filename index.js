@@ -5,10 +5,10 @@ import jwt from 'jsonwebtoken';
 import { schema, models } from './data/schema.js';
 import { connectDB } from './lib/mongoose.js';
 
-dotenv.config();
+dotenv.config({ path: `.env.${process.env.NODE_ENV}` });
 
 // Connect to MongoDB.
-connectDB(process.env.MONGODB_URI);
+await connectDB(process.env.MONGODB_URI);
 
 // Extract the user from the token for authentication.
 const getUser = function(token) {
@@ -18,7 +18,7 @@ const getUser = function(token) {
       return jwt.verify(token, process.env.JWT_SECRET);
     }
     catch (err) {
-      return { error: true, msg: 'Session invalid' };
+      return null;
     }
   }
 };
@@ -27,7 +27,7 @@ const getUser = function(token) {
 const server = new ApolloServer({
   schema,
   context: ({ req }) => {
-    const token = req.headers.authorization || '';
+    const token = req?.headers?.authorization || '';
     const user = getUser(token);
     return {
       env: process.env,
