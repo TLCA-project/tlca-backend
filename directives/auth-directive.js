@@ -1,4 +1,5 @@
 import { mapSchema, getDirective, MapperKind } from '@graphql-tools/utils';
+import { AuthenticationError } from 'apollo-server';
 import { defaultFieldResolver } from 'graphql';
 
 const authDirective = function(directiveName) {
@@ -31,13 +32,13 @@ const authDirective = function(directiveName) {
             const { resolve = defaultFieldResolver } = fieldConfig;
             fieldConfig.resolve = function (source, args, context, info) {
               if (!context.user) {
-                throw new Error('Not authorized');
+                throw new AuthenticationError('Not authorized');
               }
 
               const { requires } = authDirective;
               if (requires) {
                 if (!requires.some(role => context.user.roles.includes(role.toLowerCase()))) {
-                  throw new Error('Not authorized');
+                  throw new AuthenticationError('Not authorized');
                 }
               }
 
