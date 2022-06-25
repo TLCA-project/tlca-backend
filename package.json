@@ -6,7 +6,11 @@
   "scripts": {
     "start": "cross-env NODE_ENV=development node index.js",
     "test": "cross-env NODE_ENV=test mocha",
-    "watch": "cross-env NODE_ENV=development nodemon index.js -e js"
+    "watch": "cross-env NODE_ENV=development nodemon index.js -e js",
+    "lint:js": "eslint --ext \".js\" --ignore-path .gitignore .",
+    "lint:prettier": "prettier --check .",
+    "lint": "yarn lint:js && yarn lint:prettier",
+    "lintfix": "prettier --write --list-different . && yarn lint:js --fix"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +30,10 @@
   "devDependencies": {
     "chai": "^4.3.6",
     "cross-env": "^7.0.3",
+    "eslint": "^8.18.0",
+    "eslint-config-prettier": "^8.5.0",
     "mocha": "^9.2.2",
-    "nodemon": "^2.0.15"
+    "nodemon": "^2.0.15",
+    "prettier": "^2.7.1"
   }
 }
