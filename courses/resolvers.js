@@ -110,7 +110,7 @@ const resolvers = {
     }
   },
   Query: {
-    async courses(_parent, args, { models, user }, _info) {
+    async courses(_parent, args, { models, query, user }, _info) {
       const { Course } = models;
 
       const pipeline = [];
@@ -196,7 +196,7 @@ const resolvers = {
         const match = {};
 
         // Adapt filter and projection according to filter query param
-        switch (req.query.filter) {
+        switch (query.filter) {
           case 'student': {
             match.isRegistered = true;
             visibilityMatch.$or = [];
@@ -222,7 +222,7 @@ const resolvers = {
         const match = {};
 
         // Adapt filter and projection according to filter query param
-        switch (req.query.role) {
+        switch (query.role) {
           case 'coordinator':
             match.isCoordinator = true;
             break;
@@ -296,7 +296,7 @@ const resolvers = {
   },
   Mutation: {
     async register(_parent, args, { models, user }, _info) {
-      const { Course } = models;
+      const { Course, Registration } = models;
 
       const course = await Course.findOne({ code: args.code });
       if (!course) {
@@ -337,7 +337,9 @@ const resolvers = {
 
         return course;
       }
-      catch (err) {}
+      catch (err) {
+        console.log(err);
+      }
 
       throw new UserInputError('REGISTRATION_FAILED');
     },
@@ -384,7 +386,9 @@ const resolvers = {
 
         return course;
       }
-      catch (err) {}
+      catch (err) {
+        console.log(err);
+      }
 
       throw new UserInputError('INVITE_REQUEST_FAILED');
     }

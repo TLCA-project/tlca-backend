@@ -13,8 +13,9 @@ const validateLocalStrategyEmail = function (email) {
 };
 
 const validateUsername = function (username) {
-  var usernameRegex = /^(?=[\w.-]+$)(?!.*[._-]{2})(?!\.)(?!.*\.$).{3,34}$/;
-  return this.provider !== 'local' || (username && usernameRegex.test(username) && config.illegalUsernames.indexOf(username) < 0);
+  const usernameRegex = /^(?=[\w.-]+$)(?!.*[._-]{2})(?!\.)(?!.*\.$).{3,34}$/;
+  const illegalUsernames = ['administrator', 'password', 'admin', 'user', 'unknown', 'anonymous', 'null', 'undefined', 'api'];
+  return this.provider !== 'local' || (username && usernameRegex.test(username) && illegalUsernames.indexOf(username) < 0);
 };
 
 const UserSchema = new Schema({

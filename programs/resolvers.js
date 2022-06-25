@@ -1,3 +1,5 @@
+import { UserInputError } from 'apollo-server';
+
 const resolvers = {
   ProgramType: {
     TRAINING: 'training',
