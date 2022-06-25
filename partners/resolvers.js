@@ -1,3 +1,5 @@
+import { UserInputError } from 'apollo-server';
+
 const resolvers = {
   Partner: {
     async courses(partner, _args, { models: { Course } }, _info) {

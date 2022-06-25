@@ -68,12 +68,14 @@ const resolvers = {
                 throw new UserInputError('EXISTING_EMAIL_ADDRESS');
               }
             }
+            break;
           }
 
           case 'ValidationError': {
             if (err.errors.email) {
               throw new UserInputError('INVALID_EMAIL_ADDRESS');
             }
+            break;
           }
         }
         return false;
