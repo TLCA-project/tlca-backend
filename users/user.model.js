@@ -4,10 +4,6 @@ import validator from 'validator'
 
 const { model, Schema } = mongoose
 
-const validateLocalStrategyProperty = function (property) {
-  return (this.provider !== 'local' && !this.updated) || property.length
-}
-
 const validateLocalStrategyEmail = function (email) {
   return (
     (this.provider !== 'local' && !this.updated) ||
@@ -41,20 +37,10 @@ const UserSchema = new Schema(
     firstName: {
       type: String,
       trim: true,
-      default: '',
-      validate: [
-        validateLocalStrategyProperty,
-        'Please fill in your first name',
-      ],
     },
     lastName: {
       type: String,
       trim: true,
-      default: '',
-      validate: [
-        validateLocalStrategyProperty,
-        'Please fill in your last name',
-      ],
     },
     displayName: {
       type: String,
@@ -138,6 +124,14 @@ UserSchema.pre('save', function (next) {
   // Set the username to the _id as a default value
   if (!this.username) {
     this.username = this._id
+  }
+
+  // Regenerate display name when either first name or last name changed
+  if (
+    (this.firstName && this.isModified('firstName')) ||
+    (this.lastName && this.isModified('lastName'))
+  ) {
+    this.displayName = (this.firstName + ' ' + this.lastName).trim()
   }
 
   // Choose a new salt and hash the password each time a new one is choosed

@@ -54,15 +54,14 @@ const resolvers = {
     signOut(_parent, _args, _context, _info) {
       return true
     },
-    async signUp(_parent, args, context, _info) {
-      const { User } = context.models
+    async signUp(_parent, args, { models }, _info) {
+      const { User } = models
 
-      if (!args.firstName || !args.lastName || !args.email || !args.password) {
+      if (!args.email || !args.password) {
         throw new UserInputError('MISSING_FIELDS')
       }
 
       const user = new User(args)
-      user.displayName = user.firstName + ' ' + user.lastName
       user.provider = 'local'
 
       user.updateEmail(args.email)
@@ -88,6 +87,7 @@ const resolvers = {
             break
           }
         }
+        console.log(err)
         return false
       }
     },
