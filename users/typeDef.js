@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server';
+import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   type SignInResponse {
@@ -19,10 +19,15 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
-    signIn(email: String!, password: String!): SignInResponse!
+    signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
-    signUp(firstName: String!, lastName: String!, email: String!, password: String!): Boolean
+    signUp(
+      firstName: String!
+      lastName: String!
+      email: String!
+      password: String!
+    ): Boolean
   }
-`;
+`
 
-export default typeDefs;
+export default typeDefs
