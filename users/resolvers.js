@@ -84,10 +84,12 @@ const resolvers = {
             if (err.errors.email) {
               throw new UserInputError('INVALID_EMAIL_ADDRESS')
             }
+            if (err.errors.password) {
+              throw new UserInputError('INVALID_PASSWORD')
+            }
             break
           }
         }
-        console.log(err)
         return false
       }
     },
