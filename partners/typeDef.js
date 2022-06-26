@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server';
+import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   type Partner {
@@ -17,6 +17,6 @@ const typeDefs = gql`
     partners(limit: Int): [Partner!]!
     partner(code: ID!): Partner
   }
-`;
+`
 
-export default typeDefs;
+export default typeDefs
