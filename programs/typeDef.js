@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server';
+import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   enum ProgramType {
@@ -26,9 +26,9 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    programs(limit: Int): [Program!]!
+    programs(offset: Int, limit: Int): [Program!]!
     program(code: ID!): Program
   }
-`;
+`
 
-export default typeDefs;
+export default typeDefs

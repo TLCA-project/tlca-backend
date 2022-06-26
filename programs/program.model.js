@@ -1,77 +1,80 @@
-import mongoose from 'mongoose';
-import { getPathCompleter } from '../lib/models.js';
+import mongoose from 'mongoose'
+import { getPathCompleter } from '../lib/models.js'
 
-const { model, Schema } = mongoose;
+const { model, Schema } = mongoose
 
 const ProgramSchema = new Schema({
   code: {
     type: String,
     trim: true,
     required: 'Code cannot be blank.',
-    unique: true
+    unique: true,
   },
   name: {
     type: String,
-    default: '',
     trim: true,
-    required: 'Name cannot be blank.'
+    required: 'Name cannot be blank.',
   },
   type: {
     type: String,
     enum: ['training', 'uprogram'],
     default: 'training',
-    required: 'Type cannot be blank.'
+    required: 'Type cannot be blank.',
   },
   field: {
     type: String,
-    trim: true
+    trim: true,
   },
   tags: {
-    type: [{
-      type: String,
-      trim: true
-    }],
-    default: undefined
+    type: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    default: undefined,
   },
   language: {
     type: String,
-    trim: true
+    trim: true,
   },
   coordinator: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: 'Coordinator cannot be blank.'
+    required: 'Coordinator cannot be blank.',
   },
   courses: {
-    type: [{
-      type: Schema.ObjectId,
-      ref: 'Course'
-    }],
-    default: undefined
+    type: [
+      {
+        type: Schema.ObjectId,
+        ref: 'Course',
+      },
+    ],
+    default: undefined,
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.'
+    required: 'Description cannot be blank.',
   },
   visibility: {
     type: String,
     enum: ['public', 'invite-only', 'private'],
-    default: 'public'
+    default: 'public',
   },
   created: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   user: {
     type: Schema.ObjectId,
-    ref: 'User'
-  }
-});
+    ref: 'User',
+  },
+})
 
 // Generate full path for the banner.
-const pathCompleter = getPathCompleter('programs');
-ProgramSchema.post('aggregate', pathCompleter);
-ProgramSchema.post('find', pathCompleter);
-ProgramSchema.post('findOne', pathCompleter);
+ProgramSchema.post(
+  ['aggregate', 'find', 'findOne'],
+  getPathCompleter('programs')
+)
 
-export default model('Program', ProgramSchema);
+export default model('Program', ProgramSchema)
