@@ -23,6 +23,21 @@ const resolvers = {
         roles: user.roles,
       }
     },
+    async users(_parent, args, { models }, _info) {
+      const { User } = models
+
+      // Set up offset and limit.
+      const skip = Math.max(0, args.offset ?? 0)
+      const limit = args.limit ?? undefined
+
+      // Retrieve all the users satisfying the conditions defined hereabove.
+      const users = await User.find({}, null, { skip, limit })
+      return users.map((user) => ({
+        ...user.toJSON(),
+        id: user.id,
+        isValidated: !user.emailConfirmationToken,
+      }))
+    },
   },
   Mutation: {
     async signIn(_parent, args, { env, models }, _info) {

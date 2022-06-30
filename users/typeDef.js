@@ -7,15 +7,18 @@ const typeDefs = gql`
 
   type User {
     displayName: String!
-    firstName: String!
+    email: String!
+    firstName: String
     id: ID!
-    lastName: String!
+    isValidated: Boolean
+    lastName: String
     roles: [String!]!
     username: ID!
   }
 
   extend type Query {
     me: User
+    users(offset: Int, limit: Int): [User!]! @auth(requires: ADMIN)
   }
 
   extend type Mutation {
