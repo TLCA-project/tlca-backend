@@ -1,45 +1,47 @@
-import mongoose from 'mongoose';
+import mongoose from 'mongoose'
 
-const { Schema } = mongoose;
+const { Schema } = mongoose
 
 const CompetencySchema = new Schema({
   code: {
     type: String,
     trim: true,
     required: 'Code cannot be blank.',
-    unique: true
+    unique: true,
   },
   name: {
     type: String,
     default: '',
     trim: true,
-    required: 'Name cannot be blank.'
+    required: 'Name cannot be blank.',
   },
   description: {
-    type: String
+    type: String,
   },
   type: {
     type: String,
-    enum: ['theoretical', 'practical']
+    enum: ['theoretical', 'practical'],
   },
   public: {
-    type: Boolean
+    type: Boolean,
   },
   partners: {
-    type: [{
-      type: Schema.ObjectId,
-      ref: 'Partner'
-    }],
-    default: undefined
+    type: [
+      {
+        type: Schema.ObjectId,
+        ref: 'Partner',
+      },
+    ],
+    default: undefined,
   },
   created: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   user: {
     type: Schema.ObjectId,
-    ref: 'User'
-  }
-});
+    ref: 'User',
+  },
+})
 
-export default mongoose.model('Competency', CompetencySchema);
+export default mongoose.model('Competency', CompetencySchema)

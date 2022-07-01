@@ -1,11 +1,20 @@
-import { gql } from 'apollo-server';
+import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   type Competency {
     code: ID!
-    name: String!
     description: String
+    name: String!
+    partners: [Partner!]
+    isOwner: Boolean
+    isPublic: Boolean
+    user: User!
   }
-`;
 
-export default typeDefs;
+  extend type Query {
+    competencies(offset: Int, limit: Int): [Competency!]! @auth
+    competency(code: ID!): Competency @auth
+  }
+`
+
+export default typeDefs
