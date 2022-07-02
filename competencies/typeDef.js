@@ -1,6 +1,11 @@
 import { gql } from 'apollo-server'
 
 const typeDefs = gql`
+  enum CompetencyType {
+    PRACTICAL
+    THEORETICAL
+  }
+
   type Competency {
     code: ID!
     description: String
@@ -8,6 +13,7 @@ const typeDefs = gql`
     partners: [Partner!]
     isOwner: Boolean
     isPublic: Boolean
+    type: CompetencyType
     user: User!
   }
 
