@@ -56,6 +56,49 @@ const resolvers = {
       return competency
     },
   },
+  Mutation: {
+    async createCompetency(_parent, args, { models, user }, _info) {
+      const { Competency } = models
+
+      // Clean up the optional args.
+      if (args.description?.trim().length === 0) {
+        args.description = undefined
+      }
+      if (!args.isPublic) {
+        args.isPublic = undefined
+      }
+      if (args.partners?.length === 0) {
+        args.partners = undefined
+      }
+
+      // Create the competency Mongoose object.
+      const competency = new Competency(args)
+      competency.public = args.isPublic
+      competency.user = user.id
+
+      // Save the competency into the database.
+      try {
+        await competency.save()
+        return true
+      } catch (err) {
+        switch (err.name) {
+          case 'MongoServerError': {
+            switch (err.code) {
+              case 11000: {
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists'
+                  }
+                })
+              }
+            }
+            break
+          }
+        }
+        return false
+      }
+    },
+  },
 }
 
 export default resolvers
