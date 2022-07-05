@@ -4,7 +4,7 @@ services:
     build:
       context: .
     env_file:
-    - .env.development
+    - .docker-env.development
     depends_on:
       - db
     ports: 
