@@ -62,6 +62,12 @@ const resolvers = {
     UCOURSE: 'ucourse',
     UNIT: 'unit',
   },
+  CourseView: {
+    COORDINATOR: 'coordinator',
+    STUDENT: 'student', 
+    TEACHER: 'teacher',
+    USER: 'user',
+  },
   RegistrationInvite: {
     REQUESTED: 'requested',
     SENT: 'sent',
@@ -166,13 +172,19 @@ const resolvers = {
 
       // If a user is connected, adjust the filter according to his/her roles.
       if (user) {
-        const roles = user.roles
+        const { roles } = user
+        const { view } = args
 
         // Teachers can also access their own courses
         // no matter their status or visibility.
         if (roles.includes('teacher')) {
-          filter.$or.push({ coordinator: user.id })
-          filter.$or.push({ teachers: user.id })
+          if (!view || view === 'coordinator') {
+            filter.$or.push({ coordinator: user.id })
+          }
+
+          if (!view || view === 'teacher') {
+            filter.$or.push({ teachers: user.id })
+          }
         }
       }
 
