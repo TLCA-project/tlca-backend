@@ -46,6 +46,7 @@ const typeDefs = gql`
   }
 
   type Course {
+    archived: Date @auth(requires: TEACHER)
     banner: String
     code: ID!
     colophon: String
@@ -54,13 +55,16 @@ const typeDefs = gql`
     description: String!
     field: String
     hasRequestedInvite: Boolean @auth
+    isArchived: Boolean @auth(requires: TEACHER)
     isCoordinator: Boolean @auth(requires: TEACHER)
+    isPublished: Boolean @auth(requires: TEACHER)
     isRegistered: Boolean @auth(requires: STUDENT)
     isTeacher: Boolean @auth(requires: TEACHER)
     language: String
     load: CourseLoad
     name: String!
     partners: [Partner!]
+    published: Date @auth(requires: TEACHER)
     registration: Registration @auth
     schedule: [Event!]
     span: Int
