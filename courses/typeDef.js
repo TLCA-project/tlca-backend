@@ -26,6 +26,13 @@ const typeDefs = gql`
     PRIVATE
   }
 
+  enum CourseView {
+    COORDINATOR
+    STUDENT
+    TEACHER
+    USER
+  }
+
   type Event {
     name: String
     date: Date
@@ -82,7 +89,7 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    courses(offset: Int, limit: Int, published: Boolean, filter: String, role: String): [Course!]!
+    courses(offset: Int, limit: Int, view: CourseView): [Course!]!
     course(code: ID!): Course
   }
 
