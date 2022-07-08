@@ -54,6 +54,7 @@ const typeDefs = gql`
 
   type Course {
     archived: Date @auth(requires: TEACHER)
+    assessments: [Assessment!] @auth(requires: TEACHER)
     banner: String
     code: ID!
     colophon: String

@@ -64,7 +64,7 @@ const resolvers = {
   },
   CourseView: {
     COORDINATOR: 'coordinator',
-    STUDENT: 'student', 
+    STUDENT: 'student',
     TEACHER: 'teacher',
     USER: 'user',
   },
@@ -78,6 +78,11 @@ const resolvers = {
     PRIVATE: 'private',
   },
   Course: {
+    async assessments(course, _args, { models }, _info) {
+      const { Assessment } = models
+
+      return await Assessment.find({ course: course._id })
+    },
     async coordinator(course, _args, { models }, _info) {
       const { User } = models
 
