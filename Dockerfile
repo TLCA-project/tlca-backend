@@ -3,4 +3,3 @@ WORKDIR /tlca-backend
 COPY . /tlca-backend
 RUN yarn install
 CMD ["yarn", "start"]
-
