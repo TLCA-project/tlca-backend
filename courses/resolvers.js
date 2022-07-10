@@ -183,12 +183,17 @@ const resolvers = {
         // Teachers can also access their own courses
         // no matter their status or visibility.
         if (roles.includes('teacher')) {
-          if (!view || view === 'coordinator') {
-            filter.$or.push({ coordinator: user.id })
-          }
+          switch (view) {
+            case 'coordinator':
+              filter.$or = [{ coordinator: user.id }]
+              break
 
-          if (!view || view === 'teacher') {
-            filter.$or.push({ teachers: user.id })
+            case 'teacher':
+              filter.$or = [{ teachers: user.id }]
+              break
+
+            default:
+              filter.$or.push({ coordinator: user.id }, { teachers: user.id })
           }
         }
       }
@@ -227,8 +232,12 @@ const resolvers = {
           select: 'code description name',
           model: 'Competency',
         },
-        { path: 'coordinator', select: '_id displayName', model: 'User' },
-        { path: 'teachers', select: '_id displayName', model: 'User' },
+        {
+          path: 'coordinator',
+          select: '_id displayName username',
+          model: 'User',
+        },
+        { path: 'teachers', select: '_id displayName username', model: 'User' },
       ]).then((c) => c.toJSON())
 
       // Rename the 'id' field of the coordinator and teachers
