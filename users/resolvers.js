@@ -16,11 +16,11 @@ const resolvers = {
       }
 
       return {
-        id: user._id.toString(),
         displayName: user.displayName,
         firstName: user.firstName,
         lastName: user.lastName,
         roles: user.roles,
+        username: user.username,
       }
     },
     async users(_parent, args, { models }, _info) {
