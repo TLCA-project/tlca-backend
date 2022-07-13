@@ -122,12 +122,12 @@ const UserSchema = new Schema(
 )
 
 UserSchema.pre('save', function (next) {
-  // Set the username to the _id as a default value
+  // Set the username to the '_id' as a default value.
   if (!this.username) {
     this.username = this._id
   }
 
-  // Regenerate display name when either first name or last name changed
+  // Regenerate display name when either first name or last name changed.
   if (
     (this.firstName && this.isModified('firstName')) ||
     (this.lastName && this.isModified('lastName'))
@@ -135,7 +135,12 @@ UserSchema.pre('save', function (next) {
     this.displayName = (this.firstName + ' ' + this.lastName).trim()
   }
 
-  // Choose a new salt and hash the password each time a new one is choosed
+  // Set the display name to the username when no first and last names are defined.
+  if (!this.displayName || !this.displayName.length) {
+    this.displayName = this.username
+  }
+
+  // Choose a new salt and hash the password each time a new one is choosed.
   if (this.password && this.isModified('password')) {
     this.salt = crypto.randomBytes(16).toString('base64')
     this.password = this.hashPassword(this.password)
