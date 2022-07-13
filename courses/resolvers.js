@@ -189,7 +189,14 @@ const resolvers = {
               break
 
             case 'teacher':
-              filter.$or = [{ teachers: user.id }]
+              filter.$or = [
+                {
+                  $and: [
+                    { published: { $exists: true } },
+                    { $or: [{ coordinator: user.id }, { teachers: user.id }] },
+                  ],
+                },
+              ]
               break
 
             default:
