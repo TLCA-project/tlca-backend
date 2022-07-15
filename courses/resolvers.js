@@ -54,7 +54,7 @@ function canEnroll(schedule, now) {
 const resolvers = {
   CompetencyCategory: {
     ADVANCED: 'advanced',
-    BASIC: 'basic'
+    BASIC: 'basic',
   },
   CourseLoadType: {
     WEEKLY: 'weekly',
@@ -271,12 +271,24 @@ const resolvers = {
     async createCourse(_parent, args, { models, user }, _info) {
       const { Competency, Course } = models
 
+      // Check that the constraints are satisfied.
+      if (!args.competencies.some((c) => c.category === 'basic')) {
+        throw new UserInputError('MISSING_BASIC_COMPETENCY')
+      }
+
+      const codes = new Set()
+      if (args.competencies.some((c) => codes.size === codes.add(c.competency).size)) {
+        throw new UserInputError('DUPLICATE_COMPETENCIES')
+      }
+
       // Create the course Mongoose object.
       const course = new Course(args)
-      course.competencies = await Promise.all(args.competencies.map(async (c) => ({
-        ...c,
-        competency: (await Competency.findOne({ code: c.competency}))?._id,
-      })))
+      course.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: (await Competency.findOne({ code: c.competency }))?._id,
+        }))
+      )
       course.coordinator = user.id
       course.user = user.id
 
@@ -291,8 +303,8 @@ const resolvers = {
               case 11000: {
                 throw new UserInputError('EXISTING_CODE', {
                   formErrors: {
-                    code: 'The specified code already exists'
-                  }
+                    code: 'The specified code already exists',
+                  },
                 })
               }
             }
