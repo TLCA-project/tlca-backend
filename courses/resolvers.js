@@ -52,6 +52,10 @@ function canEnroll(schedule, now) {
 }
 
 const resolvers = {
+  CompetencyCategory: {
+    ADVANCED: 'advanced',
+    BASIC: 'basic'
+  },
   CourseLoadType: {
     WEEKLY: 'weekly',
     THEO_PRAC: 'theo+prac',
@@ -264,6 +268,41 @@ const resolvers = {
     },
   },
   Mutation: {
+    async createCourse(_parent, args, { models, user }, _info) {
+      const { Competency, Course } = models
+
+      // Create the course Mongoose object.
+      const course = new Course(args)
+      course.competencies = await Promise.all(args.competencies.map(async (c) => ({
+        ...c,
+        competency: (await Competency.findOne({ code: c.competency}))?._id,
+      })))
+      course.coordinator = user.id
+      course.user = user.id
+
+      // Save the course into the database.
+      try {
+        await course.save()
+        return true
+      } catch (err) {
+        switch (err.name) {
+          case 'MongoServerError': {
+            switch (err.code) {
+              case 11000: {
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists'
+                  }
+                })
+              }
+            }
+            break
+          }
+        }
+      }
+
+      return false
+    },
     async register(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
 
