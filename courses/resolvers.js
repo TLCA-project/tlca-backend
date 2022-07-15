@@ -221,6 +221,9 @@ const resolvers = {
               ]
               break
 
+            case 'user':
+              break
+
             default:
               filter.$or.push({ coordinator: user.id }, { teachers: user.id })
           }
