@@ -60,6 +60,11 @@ const resolvers = {
     WEEKLY: 'weekly',
     THEO_PRAC: 'theo+prac',
   },
+  CourseStatus: {
+    ARCHIVED: 'archived',
+    PUBLISHED: 'published',
+    UNPUBLISHED: 'unpublished',
+  },
   CourseType: {
     PROJECT: 'project',
     TRAINING: 'training',
@@ -133,6 +138,19 @@ const resolvers = {
       const { Registration } = models
 
       return await Registration.findOne({ course: course._id, user: user.id })
+    },
+    status(course, _args, _content, _info) {
+      if (!course.published) {
+        return 'unpublished'
+      }
+      if (!course.archived) {
+        return 'published'
+      }
+      if (course.archived) {
+        return 'archived'
+      }
+
+      return null
     },
     team(course, _args, _context, _info) {
       const team = []
@@ -213,8 +231,13 @@ const resolvers = {
       const skip = Math.max(0, args.offset ?? 0)
       const limit = args.limit ?? undefined
 
-      // Retrieve all the courses satisfying the conditions defined hereabove.
-      const courses = await Course.find(filter, null, { skip, limit })
+      // Retrieve all the courses satisfying the conditions defined hereabove
+      // of all the competencies if the connected user has the admin role.
+      const courses = await Course.find(
+        user?.roles.includes('admin') ? {} : filter,
+        null,
+        { skip, limit }
+      )
 
       return courses
     },
@@ -277,7 +300,11 @@ const resolvers = {
       }
 
       const codes = new Set()
-      if (args.competencies.some((c) => codes.size === codes.add(c.competency).size)) {
+      if (
+        args.competencies.some(
+          (c) => codes.size === codes.add(c.competency).size
+        )
+      ) {
         throw new UserInputError('DUPLICATE_COMPETENCIES')
       }
 

@@ -13,6 +13,12 @@ const typeDefs = gql`
     THEO_PRAC
   }
 
+  enum CourseStatus {
+    ARCHIVED
+    PUBLISHED
+    UNPUBLISHED
+  }
+
   enum CourseType {
     PROJECT
     TRAINING
@@ -68,9 +74,9 @@ const typeDefs = gql`
     description: String!
     field: String
     hasRequestedInvite: Boolean @auth
-    isArchived: Boolean @auth(requires: TEACHER)
+    isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
-    isPublished: Boolean @auth(requires: TEACHER)
+    isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
     isRegistered: Boolean @auth(requires: STUDENT)
     isTeacher: Boolean @auth(requires: TEACHER)
     language: String
@@ -80,6 +86,7 @@ const typeDefs = gql`
     published: Date @auth(requires: TEACHER)
     registration: Registration @auth
     schedule: [Event!]
+    status: CourseStatus @auth(requires: [ADMIN, TEACHER])
     span: Int
     tags: [String!]
     teachers: [User!]
