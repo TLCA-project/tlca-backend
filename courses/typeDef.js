@@ -1,7 +1,12 @@
-import { gql } from 'apollo-server';
+import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   scalar Date
+
+  enum CompetencyCategory {
+    ADVANCED
+    BASIC
+  }
 
   enum CourseLoadType {
     WEEKLY
@@ -15,6 +20,13 @@ const typeDefs = gql`
     UNIT
   }
 
+  enum CourseView {
+    COORDINATOR
+    STUDENT
+    TEACHER
+    USER
+  }
+
   enum RegistrationInvite {
     REQUESTED
     SENT
@@ -26,13 +38,6 @@ const typeDefs = gql`
     PRIVATE
   }
 
-  enum CourseView {
-    COORDINATOR
-    STUDENT
-    TEACHER
-    USER
-  }
-
   type Event {
     name: String
     date: Date
@@ -40,7 +45,7 @@ const typeDefs = gql`
 
   type CourseCompetency {
     competency: Competency!
-    category: String!
+    category: CompetencyCategory!
     subcategory: String
   }
 
@@ -94,10 +99,24 @@ const typeDefs = gql`
     course(code: ID!): Course
   }
 
+  input CourseCompetencyInput {
+    competency: ID!
+    category: CompetencyCategory!
+    subcategory: String
+  }
+
   extend type Mutation {
+    createCourse(
+      code: String!
+      competencies: [CourseCompetencyInput!]!
+      name: String!
+      description: String
+      type: CourseType
+      visibility: Visibility
+    ): Boolean! @auth(requires: TEACHER)
     register(code: ID!): Course @auth(requires: STUDENT)
     requestInvite(code: ID!): Course @auth
   }
-`;
+`
 
-export default typeDefs;
+export default typeDefs
