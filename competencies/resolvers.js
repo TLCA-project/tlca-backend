@@ -25,15 +25,22 @@ const resolvers = {
     async competencies(_parent, args, { models, user }, _info) {
       const { Competency } = models
 
-      // Basically, can only access own competencies and those which are public
+      // Basically, can only access own competencies and those which are public.
       const filter = { $or: [{ user: user.id }, { public: true }] }
 
       // Set up offset and limit.
       const skip = Math.max(0, args.offset ?? 0)
       const limit = args.limit ?? undefined
 
-      // Retrieve all the competencies satisfying the conditions defined hereabove.
-      const competencies = await Competency.find(filter, null, { skip, limit })
+      // Retrieve all the competencies satisfying the conditions defined hereabove
+      // of all the competencies if the connected user has the admin role.
+      const competencies = await Competency.find(
+        user.roles.includes('admin') ? {} : filter,
+        null,
+        { skip, limit }
+      )
+
+      // Populate the returned competencies with derived fields.
       return competencies.map((competency) => ({
         ...competency.toJSON(),
         isOwner: competency.user._id.toString() === user.id,
@@ -87,8 +94,8 @@ const resolvers = {
               case 11000: {
                 throw new UserInputError('EXISTING_CODE', {
                   formErrors: {
-                    code: 'The specified code already exists'
-                  }
+                    code: 'The specified code already exists',
+                  },
                 })
               }
             }
