@@ -1,5 +1,6 @@
 import { UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
+import mongoose from 'mongoose'
 
 function isCoordinator(course, context) {
   const userId = context.user?.id
@@ -180,6 +181,8 @@ const resolvers = {
     async courses(_parent, args, { models, user }, _info) {
       const { Course } = models
 
+      const pipeline = []
+
       // Basically, can only retrieve courses that are:
       // with the 'public' or invite-only' visibilities,
       // and with the 'published' status.
@@ -197,17 +200,74 @@ const resolvers = {
         ],
       }
 
-      // If a user is connected, adjust the filter according to his/her roles.
-      if (user) {
+      // If a user is connected,
+      // adjust the filter according to his/her roles.
+      if (user && args.view !== 'user') {
         const { roles } = user
-        const { view } = args
+        const userId = new mongoose.Types.ObjectId(user.id)
 
         // Teachers can also access their own courses
         // no matter their status or visibility.
         if (roles.includes('teacher')) {
+          filter.$or.push({ coordinator: userId }, { teachers: userId })
+        }
+
+        // Students can also access the courses they are registered to
+        // no matter their status or visibility.
+        if (roles.includes('student')) {
+          pipeline.push(
+            {
+              $lookup: {
+                from: 'registrations',
+                localField: '_id',
+                foreignField: 'course',
+                as: 'registrations',
+              },
+            },
+            {
+              $addFields: {
+                isRegistered: {
+                  $anyElementTrue: {
+                    $map: {
+                      input: '$registrations',
+                      as: 'registration',
+                      in: {
+                        $and: [
+                          { $eq: ['$$registration.user', userId] },
+                          {
+                            $eq: [
+                              { $type: '$$registration.invitation' },
+                              'missing',
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            }
+          )
+
+          filter.$or.push({ isRegistered: true })
+        }
+
+        // Admin can access to all the courses.
+        if (roles.includes('admin')) {
+          delete filter.$or
+        }
+
+        // If the view argument is defined,
+        // adjust the filter according to it.
+        const { view } = args
+        if (view) {
           switch (view) {
             case 'coordinator':
-              filter.$or = [{ coordinator: user.id }]
+              filter.$or = [{ coordinator: userId }]
+              break
+
+            case 'student':
+              filter.$or = [{ isRegistered: true }]
               break
 
             case 'teacher':
@@ -215,32 +275,31 @@ const resolvers = {
                 {
                   $and: [
                     { published: { $exists: true } },
-                    { $or: [{ coordinator: user.id }, { teachers: user.id }] },
+                    { $or: [{ coordinator: userId }, { teachers: userId }] },
                   ],
                 },
               ]
               break
-
-            case 'user':
-              break
-
-            default:
-              filter.$or.push({ coordinator: user.id }, { teachers: user.id })
           }
         }
       }
 
+      // Only set the defined filter when no user is connected,
+      // or if the connected one has not the admin role.
+      if (!user || !user.roles.includes('admin')) {
+        pipeline.push({ $match: filter })
+      }
+
       // Set up offset and limit.
-      const skip = Math.max(0, args.offset ?? 0)
-      const limit = args.limit ?? undefined
+      pipeline.push({ $skip: Math.max(0, args.offset ?? 0) })
+      if (args.limit) {
+        pipeline.push({ $limit: args.limit })
+      }
 
       // Retrieve all the courses satisfying the conditions defined hereabove
       // of all the competencies if the connected user has the admin role.
-      const courses = await Course.find(
-        user?.roles.includes('admin') ? {} : filter,
-        null,
-        { skip, limit }
-      )
+      pipeline.push({ $project: { registrations: 0 } })
+      const courses = await Course.aggregate(pipeline)
 
       return courses
     },

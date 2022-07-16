@@ -1,49 +1,49 @@
-import mongoose from 'mongoose';
-import validator from 'validator';
+import mongoose from 'mongoose'
+import validator from 'validator'
 
-const { Schema } = mongoose;
+const { Schema } = mongoose
 
 const validateLocalStrategyEmail = function (email) {
-  return validator.isEmail(email, { require_tld: false });
-};
+  return validator.isEmail(email, { require_tld: false })
+}
 
 const RegistrationSchema = new Schema({
   user: {
     type: Schema.ObjectId,
-    ref: 'User'
+    ref: 'User',
   },
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.'
+    required: 'Course cannot be blank.',
   },
   date: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   invite: {
     type: String,
-    enum: ['requested', 'sent']
+    enum: ['requested', 'sent'],
   },
   email: {
     type: String,
     lowercase: true,
     trim: true,
-    validate: [validateLocalStrategyEmail, 'Please fill a valid email address']
+    validate: [validateLocalStrategyEmail, 'Please fill a valid email address'],
   },
   stars: {
     basic: {
       type: Number,
-      default: 0
+      default: 0,
     },
     advanced: {
       type: Number,
-      default: 0
-    }
+      default: 0,
+    },
   },
   group: {
-    type: Number
-  }
-});
+    type: Number,
+  },
+})
 
-export default mongoose.model('Registration', RegistrationSchema);
+export default mongoose.model('Registration', RegistrationSchema)
