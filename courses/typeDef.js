@@ -85,6 +85,7 @@ const typeDefs = gql`
     partners: [Partner!]
     published: Date @auth(requires: TEACHER)
     registration: Registration @auth
+    registrations: [Registration!] @auth(requires: TEACHER)
     schedule: [Event!]
     status: CourseStatus @auth(requires: [ADMIN, TEACHER])
     span: Int
@@ -97,8 +98,10 @@ const typeDefs = gql`
 
   type Registration {
     date: Date
+    email: String
+    id: ID!
     invite: RegistrationInvite
-    boop: Boolean
+    user: User
   }
 
   extend type Query {

@@ -140,6 +140,11 @@ const resolvers = {
 
       return await Registration.findOne({ course: course._id, user: user.id })
     },
+    async registrations(course, _args, { models }, _info) {
+      const { Registration } = models
+
+      return await Registration.find({ course: course._id }).populate('user')
+    },
     status(course, _args, _content, _info) {
       if (!course.published) {
         return 'unpublished'
