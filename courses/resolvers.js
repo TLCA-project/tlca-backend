@@ -9,10 +9,7 @@ function isCoordinator(course, context) {
 
 function isTeacher(course, context) {
   const userId = context.user?.id
-  return (
-    course.teachers &&
-    course.teachers.some((t) => (t._id || t).toString() === userId)
-  )
+  return !!course.teachers?.some((t) => (t._id || t).toString() === userId)
 }
 
 function canEnroll(schedule, now) {
@@ -417,7 +414,8 @@ const resolvers = {
         throw new UserInputError('Course not found.')
       }
 
-      // Can only register to a published course with 'public' visibility
+      // Can only directly register to
+      // a published course with 'public' visibility.
       if (
         !course.published ||
         course.archived ||
@@ -426,18 +424,18 @@ const resolvers = {
         throw new UserInputError('REGISTRATION_FAILED')
       }
 
-      // Coordinator and teacher cannot register to their own course
+      // Coordinator and teacher cannot register to their own course.
       if (isCoordinator(course, user) || isTeacher(course, user)) {
         throw new UserInputError('REGISTRATION_FAILED')
       }
 
-      // Can only register if it agrees with the schedule of the course
+      // Can only register if it agrees with the schedule of the course.
       const now = DateTime.now()
       if (!canEnroll(course.schedule, now)) {
         throw new UserInputError('REGISTRATION_FAILED')
       }
 
-      // Check whether there is not already a registration
+      // Check whether there is not already a registration.
       const userId = user.id
       const registration = await Registration.findOne({
         course: course._id,
@@ -447,7 +445,7 @@ const resolvers = {
         throw new UserInputError('REGISTRATION_FAILED')
       }
 
-      // Create a new registration for the user
+      // Create a new registration for the user.
       try {
         const registration = new Registration({
           course: course._id,
@@ -471,7 +469,8 @@ const resolvers = {
         throw new UserInputError('Course not found.')
       }
 
-      // Can only request an invite for a published course with 'invite-only' visibility
+      // Can only request an invite for
+      // a published course with 'invite-only' visibility.
       if (
         !course.published ||
         course.archived ||
@@ -480,18 +479,18 @@ const resolvers = {
         throw new UserInputError('INVITE_REQUEST_FAILED')
       }
 
-      // Coordinator and teacher cannot request an invite for their own course
+      // Coordinator and teacher cannot request an invite for their own course.
       if (isCoordinator(course, user) || isTeacher(course, user)) {
         throw new UserInputError('INVITE_REQUEST_FAILED')
       }
 
-      // Can only request an invite if it agrees with the schedule of the course
+      // Can only request an invite if it agrees with the schedule of the course.
       const now = DateTime.now()
       if (!canEnroll(course.schedule, now)) {
         throw new UserInputError('INVITE_REQUEST_FAILED')
       }
 
-      // Check whether there is not already a registration
+      // Check whether there is not already a registration.
       const userId = user.id
       const registration = await Registration.findOne({
         course: course._id,
@@ -501,7 +500,8 @@ const resolvers = {
         throw new UserInputError('INVITE_REQUEST_FAILED')
       }
 
-      // Create a new registration for the user, representing the invite request
+      // Create a new registration for the user,
+      // representing the invite request.
       try {
         const registration = new Registration({
           course: course._id,
