@@ -1,11 +1,21 @@
 import { UserInputError } from 'apollo-server'
 
 const resolvers = {
+  ProgramStatus: {
+    ARCHIVED: 'archived',
+    PUBLISHED: 'published',
+    UNPUBLISHED: 'unpublished',
+  },
   ProgramType: {
     TRAINING: 'training',
     UPROGRAM: 'uprogram',
   },
   Program: {
+    async coordinator(program, _args, { models }, _info) {
+      const { User } = models
+
+      return await User.findOne({ _id: program.coordinator })
+    },
     async partners(program, _args, { models }, _info) {
       const { Partner } = models
 
@@ -18,6 +28,19 @@ const resolvers = {
       }
 
       return await Partner.find({ _id: { $in: partners } })
+    },
+    status(program, _args, _content, _info) {
+      if (!program.published) {
+        return 'unpublished'
+      }
+      if (!program.archived) {
+        return 'published'
+      }
+      if (program.archived) {
+        return 'archived'
+      }
+
+      return null
     },
   },
   Query: {
@@ -42,7 +65,11 @@ const resolvers = {
       }
 
       program = await Program.populate(program, [
-        { path: 'coordinator', select: '_id displayName username', model: 'User' },
+        {
+          path: 'coordinator',
+          select: '_id displayName username',
+          model: 'User',
+        },
       ]).then((c) => c.toJSON())
 
       if (
