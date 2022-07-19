@@ -61,6 +61,12 @@ const ProgramSchema = new Schema({
     enum: ['public', 'invite-only', 'private'],
     default: 'public',
   },
+  published: {
+    type: Date,
+  },
+  archived: {
+    type: Date,
+  },
   created: {
     type: Date,
     default: Date.now,

@@ -16,6 +16,12 @@ const resolvers = {
 
       return await User.findOne({ _id: program.coordinator })
     },
+    isArchived(program, _args, _context, _info) {
+      return !!program.archived
+    },
+    isPublished(program, _args, _context, _info) {
+      return !!program.published
+    },
     async partners(program, _args, { models }, _info) {
       const { Partner } = models
 
