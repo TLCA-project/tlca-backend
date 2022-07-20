@@ -8,13 +8,15 @@ const typeDefs = gql`
 
   type Competency {
     code: ID!
+    created: Date! @auth(requires: ADMIN)
     description: String
-    isOwner: Boolean
+    isOwner: Boolean @auth
     isPublic: Boolean
     name: String!
     partners: [Partner!]
+    tags: [String!]
     type: CompetencyType
-    user: User!
+    user: User! @auth(requires: [ADMIN, TEACHER])
   }
 
   extend type Query {
@@ -25,11 +27,12 @@ const typeDefs = gql`
   extend type Mutation {
     createCompetency(
       code: String!
-      name: String!
       description: String
-      type: CompetencyType
-      isPublic: Boolean
+      name: String!
       partners: [ID!]
+      public: Boolean
+      tags: [String!]
+      type: CompetencyType
     ): Boolean! @auth(requires: TEACHER)
   }
 `
