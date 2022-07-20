@@ -16,6 +16,11 @@ const resolvers = {
     INVITE_ONLY: 'invite-only',
     PRIVATE: 'private',
   },
+  ProgramView: {
+    COORDINATOR: 'coordinator',
+    STUDENT: 'student',
+    USER: 'user',
+  },
   Program: {
     // Retrieve the detailed information about the coordinator.
     async coordinator(program, _args, { models }, _info) {
@@ -210,6 +215,59 @@ const resolvers = {
       return program
     },
   },
+  Mutation: {
+    async createProgram(_parent, args, { models, user }, _info) {
+      const { Course, Program } = models
+
+      // Check that the constraints are satisfied.
+      if (!args.courses.some((c) => !c.optional)) {
+        throw new UserInputError('MISSING_MANDATORY_COURSE')
+      }
+
+      const codes = new Set()
+      if (
+        args.courses.some(
+          (c) => codes.size === codes.add(c.course).size
+        )
+      ) {
+        throw new UserInputError('DUPLICATE_COURSES')
+      }
+
+      // Create the program Mongoose object.
+      const program = new Program(args)
+      program.courses = await Promise.all(
+        args.courses.map(async (c) => ({
+          ...c,
+          course: (await Course.findOne({ code: c.course }))?._id,
+        }))
+      )
+      program.coordinator = user.id
+      program.user = user.id
+
+      // Save the program into the database.
+      try {
+        await program.save()
+        return true
+      } catch (err) {
+        switch (err.name) {
+          case 'MongoServerError': {
+            switch (err.code) {
+              case 11000: {
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+              }
+            }
+            break
+          }
+        }
+      }
+
+      return false
+    },
+  }
 }
 
 export default resolvers
