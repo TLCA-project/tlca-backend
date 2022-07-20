@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const { Schema } = mongoose
+const { model, Schema } = mongoose
 
 const CompetencySchema = new Schema({
   code: {
@@ -34,6 +34,15 @@ const CompetencySchema = new Schema({
     ],
     default: undefined,
   },
+  tags: {
+    type: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    default: undefined,
+  },
   created: {
     type: Date,
     default: Date.now,
@@ -44,4 +53,4 @@ const CompetencySchema = new Schema({
   },
 })
 
-export default mongoose.model('Competency', CompetencySchema)
+export default model('Competency', CompetencySchema)
