@@ -15,7 +15,6 @@ const typeDefs = gql`
   enum ProgramView {
     COORDINATOR
     STUDENT
-    TEACHER
     USER
   }
 
