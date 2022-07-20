@@ -3,6 +3,22 @@ import { getPathCompleter } from '../lib/models.js'
 
 const { model, Schema } = mongoose
 
+const CourseSchema = new Schema(
+  {
+    course: {
+      type: Schema.ObjectId,
+      ref: 'Course',
+    },
+    optional: {
+      type: Boolean,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
 const ProgramSchema = new Schema({
   code: {
     type: String,
@@ -44,12 +60,7 @@ const ProgramSchema = new Schema({
     required: 'Coordinator cannot be blank.',
   },
   courses: {
-    type: [
-      {
-        type: Schema.ObjectId,
-        ref: 'Course',
-      },
-    ],
+    type: [CourseSchema],
     default: undefined,
   },
   description: {
