@@ -9,7 +9,7 @@ const resolvers = {
   Competency: {
     // Retrieve whether this competency has been created by the connected user.
     isOwner(competency, _args, { user }, _info) {
-      const { creator } = competency.user
+      const creator = competency.user
       return (creator._id || creator).toString() === user.id
     },
     // Retrieve whether this competency is public.
@@ -26,7 +26,7 @@ const resolvers = {
     // who created this competency.
     async user(competency, _args, { models }, _info) {
       const { User } = models
-      return await User.findOne({ _id: competency.user._id })
+      return await User.findOne({ _id: competency.user })
     },
   },
   Query: {
