@@ -225,11 +225,7 @@ const resolvers = {
       }
 
       const codes = new Set()
-      if (
-        args.courses.some(
-          (c) => codes.size === codes.add(c.course).size
-        )
-      ) {
+      if (args.courses.some((c) => codes.size === codes.add(c.course).size)) {
         throw new UserInputError('DUPLICATE_COURSES')
       }
 
@@ -267,7 +263,7 @@ const resolvers = {
 
       return false
     },
-  }
+  },
 }
 
 export default resolvers

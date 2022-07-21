@@ -36,6 +36,7 @@ First, install or upgrade [Docker](https://www.docker.com) on your host, to have
 With [VSCode support for remote containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), you can edit source files that are inside the container directly from the IDE on your local machine.
 
 There are two possible ways to work:
+
 - the source files can remain on your local filesystem, with all the dependencies files, and you use a container to run the application, knowing that any change in the container is reflected back on your local machine,
 - or you can keep the source files entirely in the container, with all the dependencies files, edit the code with VSCode on your local machine, check the results on your local browser, knowing that the code does not need to exist on your host filesystem.
 

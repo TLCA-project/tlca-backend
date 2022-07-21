@@ -157,7 +157,7 @@ UserSchema.pre('validate', function (next) {
   ) {
     const { id, value } = passwordStrength(this.password)
     if (id <= 1) {
-      this.invalidate('password', 'Password is ' + value.toLowerCase());
+      this.invalidate('password', 'Password is ' + value.toLowerCase())
     }
   }
 
