@@ -1,9 +1,9 @@
-import { mapSchema, getDirective, MapperKind } from '@graphql-tools/utils';
-import { AuthenticationError } from 'apollo-server';
-import { defaultFieldResolver } from 'graphql';
+import { mapSchema, getDirective, MapperKind } from '@graphql-tools/utils'
+import { AuthenticationError } from 'apollo-server'
+import { defaultFieldResolver } from 'graphql'
 
-const authDirective = function(directiveName) {
-  const typeDirectiveArgumentMaps = {};
+const authDirective = function (directiveName) {
+  const typeDirectiveArgumentMaps = {}
 
   return {
     authDirectiveTypeDefs: `directive @${directiveName}(
@@ -20,36 +20,43 @@ const authDirective = function(directiveName) {
     authDirectiveTransformer: (schema) => {
       return mapSchema(schema, {
         [MapperKind.TYPE]: (type) => {
-          const authDirective = getDirective(schema, type, directiveName)?.[0];
+          const authDirective = getDirective(schema, type, directiveName)?.[0]
           if (authDirective) {
-            typeDirectiveArgumentMaps[type.name] = authDirective;
+            typeDirectiveArgumentMaps[type.name] = authDirective
           }
-          return undefined;
+          return undefined
         },
         [MapperKind.OBJECT_FIELD]: (fieldConfig, _fieldName, typeName) => {
-          const authDirective = getDirective(schema, fieldConfig, directiveName)?.[0] ?? typeDirectiveArgumentMaps[typeName];
+          const authDirective =
+            getDirective(schema, fieldConfig, directiveName)?.[0] ??
+            typeDirectiveArgumentMaps[typeName]
           if (authDirective) {
-            const { resolve = defaultFieldResolver } = fieldConfig;
+            const { resolve = defaultFieldResolver } = fieldConfig
             fieldConfig.resolve = function (source, args, context, info) {
               if (!context.user) {
-                throw new AuthenticationError('Not authorized');
+                throw new AuthenticationError('Not authorized')
               }
 
-              const { requires } = authDirective;
+              const { requires } = authDirective
               if (requires) {
-                if (!requires.some(role => context.user.roles.includes(role.toLowerCase()))) {
-                  throw new AuthenticationError('Not authorized');
+                if (
+                  !requires.some((role) =>
+                    context.user.roles.includes(role.toLowerCase())
+                  )
+                ) {
+                  throw new AuthenticationError('Not authorized')
                 }
               }
 
-              return resolve(source, args, context, info);
+              return resolve(source, args, context, info)
             }
-            return fieldConfig;
+            return fieldConfig
           }
-        }
-      });
-    }
-  };
-};
+        },
+      })
+    },
+  }
+}
 
-export const { authDirectiveTypeDefs, authDirectiveTransformer } = authDirective('auth');
+export const { authDirectiveTypeDefs, authDirectiveTransformer } =
+  authDirective('auth')

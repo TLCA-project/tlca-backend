@@ -4,27 +4,27 @@ const { model, Schema } = mongoose
 
 const AssessmentSchema = new Schema({
   code: {
-    type: String
+    type: String,
   },
   name: {
     type: String,
     trim: true,
-    required: 'Name cannot be blank.'
+    required: 'Name cannot be blank.',
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.'
+    required: 'Description cannot be blank.',
   },
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.'
+    required: 'Course cannot be blank.',
   },
   start: {
-    type: Date
+    type: Date,
   },
   end: {
-    type: Date
+    type: Date,
   },
   created: {
     type: Date,
