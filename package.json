@@ -10,7 +10,8 @@
     "lint:js": "eslint --ext \".js\" --ignore-path .gitignore .",
     "lint:prettier": "prettier --check .",
     "lint": "yarn lint:js && yarn lint:prettier",
-    "lintfix": "prettier --write --list-different . && yarn lint:js --fix"
+    "lintfix": "prettier --write --list-different . && yarn lint:js --fix",
+    "prepare": "husky install"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +34,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^8.19.0",
     "eslint-config-prettier": "^8.5.0",
+    "husky": "^8.0.1",
     "mocha": "^10.0.0",
     "nodemon": "^2.0.19",
     "prettier": "^2.7.1"
