@@ -31,10 +31,39 @@ const resolvers = {
     async createAssessment(_parent, args, { models, user }, _info) {
       const { Assessment, Competency, Course } = models
 
+      // Clean up the optional args.
+      if (args.code?.trim().length === 0) {
+        args.code = undefined
+      }
+      if (args.description?.trim().length === 0) {
+        args.description = undefined
+      }
+      if (!args.end) {
+        args.end = undefined
+      }
+      if (!args.start) {
+        args.start = undefined
+      }
+
       // Retrieve the course for which to create an assessment.
       const course = await Course.findOne({ code: args.course })
       if (!course || !isCoordinator(course, user)) {
         throw new UserInputError('Course not found.')
+      }
+
+      // Code must be unique among assessments from the same course.
+      if (args.code) {
+        const assessments = await Assessment.find({
+          course: course._id,
+          code: args.code,
+        })
+        if (assessments?.length) {
+          throw new UserInputError('INVALID_CODE', {
+            formErrors: {
+              code: 'The specified code already exists',
+            },
+          })
+        }
       }
 
       // TODO: populate competencies with codes
