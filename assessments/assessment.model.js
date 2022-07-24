@@ -76,6 +76,23 @@ const AssessmentSchema = new Schema({
 })
 
 AssessmentSchema.pre('validate', function (next) {
+  // There must be at least one mandatory competency.
+  if (!this.competencies.some((c) => !c.optional)) {
+    this.invalidate('competencies', 'MISSING_MANDATORY_COMPETENCY')
+  }
+
+  // Competencies must be all different.
+  const codes = new Set()
+  if (
+    this.competencies.some(
+      (c) =>
+        codes.size ===
+        codes.add((c.competency._id || c.competency).toString()).size
+    )
+  ) {
+    this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
+  }
+
   // Start date must be strictly before end date,
   // if both are defined.
   if (this.start && this.end) {
@@ -85,14 +102,6 @@ AssessmentSchema.pre('validate', function (next) {
     if (start >= end) {
       this.invalidate('start', 'START_DATE_NOT_BEFORE_END_DATE')
     }
-  }
-
-  // Selected competencies must be all different
-  const codes = new Set()
-  if (
-    this.competencies.some((c) => codes.size === codes.add(c.competency).size)
-  ) {
-    this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
   }
 
   next()
