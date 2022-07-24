@@ -2,13 +2,13 @@ import { UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 
-function isCoordinator(course, context) {
-  const userId = context.user?.id
+function isCoordinator(course, user) {
+  const userId = user?.id
   return (course.coordinator._id || course.coordinator).toString() === userId
 }
 
-function isTeacher(course, context) {
-  const userId = context.user?.id
+function isTeacher(course, user) {
+  const userId = user?.id
   return !!course.teachers?.some((t) => (t._id || t).toString() === userId)
 }
 
