@@ -15,6 +15,19 @@ const resolvers = {
     INTERVIEW: 'interview',
     CASESTUDY: 'casestudy',
   },
+  Assessment: {
+    // Retrieve the detailed information about the competencies.
+    async competencies(assessment, _args, { models }, _info) {
+      const { Assessment } = models
+
+      return await Assessment.populate(assessment, [
+        {
+          path: 'competencies.competency',
+          model: 'Competency',
+        },
+      ]).then((a) => a.competencies)
+    },
+  },
   Query: {
     async assessment(_parent, args, { models }, _info) {
       const { Assessment } = models
