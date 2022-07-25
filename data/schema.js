@@ -9,6 +9,7 @@ import {
 import assessments from '../assessments/index.js'
 import competencies from '../competencies/index.js'
 import courses from '../courses/index.js'
+import files from '../files/index.js'
 import partners from '../partners/index.js'
 import programs from '../programs/index.js'
 import users from '../users/index.js'
@@ -25,6 +26,7 @@ let schema = makeExecutableSchema({
     assessments.typeDef,
     competencies.typeDef,
     courses.typeDef,
+    files.typeDef,
     partners.typeDef,
     programs.typeDef,
     users.typeDef,
@@ -33,6 +35,7 @@ let schema = makeExecutableSchema({
     assessments.resolvers,
     competencies.resolvers,
     courses.resolvers,
+    files.resolvers,
     partners.resolvers,
     programs.resolvers,
     users.resolvers,
