@@ -37,6 +37,9 @@ const ProgramSchema = new Schema({
     default: 'training',
     required: 'Type cannot be blank.',
   },
+  banner: {
+    type: String,
+  },
   field: {
     type: String,
     trim: true,
