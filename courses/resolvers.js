@@ -406,6 +406,38 @@ const resolvers = {
 
       return false
     },
+    async publishCourse(_parent, args, { models, user }, _info) {
+      const { Course } = models
+
+      const course = await Course.findOne({ code: args.code })
+      if (!course) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Can only publish a course that is not published yet.
+      if (course.published || course.archived) {
+        throw new UserInputError('COURSE_PUBLICATION_FAILED')
+      }
+
+      // Only the course coordinator can publish it.
+      if (!isCoordinator(course, user)) {
+        throw new UserInputError('COURSE_PUBLICATION_FAILED')
+      }
+
+      // TODO: Can only publish a course with respect to its schedule.
+
+      // Publish the course
+      course.published = new Date()
+
+      // Save the course into the database.
+      try {
+        return await course.save()
+      } catch (err) {
+        console.log(err)
+      }
+
+      return null
+    },
     async register(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
 
