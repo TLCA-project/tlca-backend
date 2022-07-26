@@ -355,6 +355,44 @@ const resolvers = {
     },
   },
   Mutation: {
+    async archiveCourse(_parent, args, { models, user }, _info) {
+      const { Course } = models
+
+      const course = await Course.findOne({ code: args.code })
+      if (!course) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Can only archive a course that is published.
+      if (
+        !course.published ||
+        course.archived ||
+        !isCoordinator(course, user)
+      ) {
+        throw new UserInputError('COURSE_ARCHIVING_FAILED')
+      }
+
+      // TODO: Can only archive a course with respect to its schedule.
+
+      // Archive the course
+      const archiveDate = DateTime.now()
+      if (!args.archiveCode) {
+        args.archiveCode = `${course.code}_${archiveDate.toFormat(
+          'yyyy-MM-dd_HH-mm'
+        )}_archived`
+      }
+      course.archived = archiveDate.toISO()
+      course.code = args.archiveCode
+
+      // Save the course into the database.
+      try {
+        return await course.save()
+      } catch (err) {
+        console.log(err)
+      }
+
+      return null
+    },
     async createCourse(_parent, args, { models, user }, _info) {
       const { Competency, Course } = models
 
@@ -414,13 +452,9 @@ const resolvers = {
         throw new UserInputError('COURSE_NOT_FOUND')
       }
 
-      // Can only publish a course that is not published yet.
-      if (course.published || course.archived) {
-        throw new UserInputError('COURSE_PUBLICATION_FAILED')
-      }
-
-      // Only the course coordinator can publish it.
-      if (!isCoordinator(course, user)) {
+      // Can only publish a course that is not published yet
+      // and only the course coordinator can publish it.
+      if (course.published || course.archived || !isCoordinator(course, user)) {
         throw new UserInputError('COURSE_PUBLICATION_FAILED')
       }
 

@@ -116,6 +116,8 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    archiveCourse(archiveCode: String, code: ID!): Course
+      @auth(requires: TEACHER)
     createCourse(
       code: String!
       competencies: [CourseCompetencyInput!]!
