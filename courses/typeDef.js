@@ -55,6 +55,11 @@ const typeDefs = gql`
     subcategory: String
   }
 
+  type CourseGroup {
+    name: String!
+    supervisor: User!
+  }
+
   type CourseLoad {
     ects: Int
     type: CourseLoadType
@@ -73,6 +78,7 @@ const typeDefs = gql`
     coordinator: User!
     description: String!
     field: String
+    groups: [CourseGroup!] @auth(requires: TEACHER)
     hasRequestedInvite: Boolean @auth
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
@@ -115,14 +121,21 @@ const typeDefs = gql`
     subcategory: String
   }
 
+  input CourseGroupInput {
+    name: String!
+    supervisor: ID!
+  }
+
   extend type Mutation {
     archiveCourse(archiveCode: String, code: ID!): Course
       @auth(requires: TEACHER)
     createCourse(
       code: String!
       competencies: [CourseCompetencyInput!]!
+      groups: [CourseGroupInput!]
       name: String!
       description: String
+      teachers: [ID!]
       type: CourseType
       visibility: Visibility
     ): Boolean! @auth(requires: TEACHER)

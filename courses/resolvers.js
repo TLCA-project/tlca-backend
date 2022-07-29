@@ -394,20 +394,14 @@ const resolvers = {
       return null
     },
     async createCourse(_parent, args, { models, user }, _info) {
-      const { Competency, Course } = models
+      const { Competency, Course, User } = models
 
-      // Check that the constraints are satisfied.
-      if (!args.competencies.some((c) => c.category === 'basic')) {
-        throw new UserInputError('MISSING_BASIC_COMPETENCY')
+      // Clean up the optional args.
+      if (args.groups?.length === 0) {
+        args.groups = undefined
       }
-
-      const codes = new Set()
-      if (
-        args.competencies.some(
-          (c) => codes.size === codes.add(c.competency).size
-        )
-      ) {
-        throw new UserInputError('DUPLICATE_COMPETENCIES')
+      if (args.teachers?.length === 0) {
+        args.teachers = undefined
       }
 
       // Create the course Mongoose object.
@@ -419,6 +413,19 @@ const resolvers = {
         }))
       )
       course.coordinator = user.id
+      if (args.groups) {
+        course.groups = await Promise.all(
+          args.groups.map(async (g) => ({
+            ...g,
+            supervisor: (await User.findOne({ username: g.supervisor }))?._id,
+          }))
+        )
+      }
+      if (args.teachers) {
+        course.teachers = await Promise.all(
+          args.teachers.map(async (t) => await User.findOne({ username: t }))
+        )
+      }
       course.user = user.id
 
       // Save the course into the database.
@@ -426,19 +433,26 @@ const resolvers = {
         await course.save()
         return true
       } catch (err) {
+        const formErrors = {}
+
         switch (err.name) {
-          case 'MongoServerError': {
+          case 'MongoServerError':
             switch (err.code) {
-              case 11000: {
+              case 11000:
                 throw new UserInputError('EXISTING_CODE', {
                   formErrors: {
                     code: 'The specified code already exists',
                   },
                 })
-              }
             }
             break
-          }
+
+          case 'ValidationError':
+            console.log(err)
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
       }
 

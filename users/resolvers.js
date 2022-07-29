@@ -3,6 +3,11 @@ import jwt from 'jsonwebtoken'
 
 const resolvers = {
   Query: {
+    async colleagues(_parent, _args, { models }, _info) {
+      const { User } = models
+
+      return await User.find({ roles: 'teacher' })
+    },
     async me(_parent, _args, context, _info) {
       const { User } = context.models
 

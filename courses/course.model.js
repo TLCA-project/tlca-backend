@@ -233,6 +233,27 @@ const CourseSchema = new Schema(
   { usePushEach: true }
 )
 
+CourseSchema.pre('validate', function (next) {
+  // There must be at least one basic competency.
+  if (!this.competencies.some((c) => c.category === 'basic')) {
+    this.invalidate('competencies', 'MISSING_BASIC_COMPETENCY')
+  }
+
+  // Competencies must be all different.
+  const codes = new Set()
+  if (
+    this.competencies.some(
+      (c) =>
+        codes.size ===
+        codes.add((c.competency._id || c.competency).toString()).size
+    )
+  ) {
+    this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
+  }
+
+  next()
+})
+
 // Generate full path for the banner.
 const pathCompleter = getPathCompleter('courses')
 CourseSchema.post('aggregate', pathCompleter)

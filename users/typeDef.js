@@ -19,6 +19,7 @@ const typeDefs = gql`
   extend type Query {
     me: User
     users(offset: Int, limit: Int): [User!]! @auth(requires: ADMIN)
+    colleagues: [User!]! @auth(requires: TEACHER)
   }
 
   extend type Mutation {
