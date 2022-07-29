@@ -95,6 +95,16 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
+    async groups(course, _args, { models }, _info) {
+      const { Course } = models
+
+      return await Course.populate(course, [
+        {
+          path: 'groups.supervisor',
+          model: 'User',
+        },
+      ]).then((a) => a.groups)
+    },
     async hasRequestedInvite(course, _args, { models, user }, _info) {
       const { Registration } = models
 
