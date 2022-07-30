@@ -251,6 +251,14 @@ CourseSchema.pre('validate', function (next) {
     this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
   }
 
+  // Group names must be all different.
+  if (this.groups?.length) {
+    const groups = new Set()
+    if (this.groups.some((g) => groups.size === groups.add(g.name).size)) {
+      this.invalidate('groups', 'DUPLICATE_GROUP_NAMES')
+    }
+  }
+
   next()
 })
 

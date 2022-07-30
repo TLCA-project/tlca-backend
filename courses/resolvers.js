@@ -458,7 +458,6 @@ const resolvers = {
             break
 
           case 'ValidationError':
-            console.log(err)
             Object.keys(err.errors).forEach(
               (e) => (formErrors[e] = err.errors[e].properties.message)
             )
