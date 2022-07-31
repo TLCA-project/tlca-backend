@@ -368,6 +368,11 @@ const resolvers = {
     async archiveCourse(_parent, args, { models, user }, _info) {
       const { Course } = models
 
+      // Clean up the optional args.
+      if (args.archiveCode?.trim().length === 0) {
+        args.archiveCode = undefined
+      }
+
       const course = await Course.findOne({ code: args.code })
       if (!course) {
         throw new UserInputError('COURSE_NOT_FOUND')
@@ -398,7 +403,18 @@ const resolvers = {
       try {
         return await course.save()
       } catch (err) {
-        console.log(err)
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+        }
       }
 
       return null
