@@ -75,10 +75,6 @@ const resolvers = {
     TEACHER: 'teacher',
     USER: 'user',
   },
-  RegistrationInvite: {
-    REQUESTED: 'requested',
-    SENT: 'sent',
-  },
   Visibility: {
     PUBLIC: 'public',
     INVITE_ONLY: 'invite-only',

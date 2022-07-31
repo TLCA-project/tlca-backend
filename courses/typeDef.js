@@ -1,8 +1,6 @@
 import { gql } from 'apollo-server'
 
 const typeDefs = gql`
-  scalar Date
-
   enum CompetencyCategory {
     ADVANCED
     BASIC
@@ -31,11 +29,6 @@ const typeDefs = gql`
     STUDENT
     TEACHER
     USER
-  }
-
-  enum RegistrationInvite {
-    REQUESTED
-    SENT
   }
 
   enum Visibility {
@@ -100,14 +93,6 @@ const typeDefs = gql`
     team: [User!]
     type: CourseType!
     visibility: Visibility!
-  }
-
-  type Registration {
-    date: Date
-    email: String
-    id: ID!
-    invite: RegistrationInvite
-    user: User
   }
 
   extend type Query {

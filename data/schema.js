@@ -12,9 +12,12 @@ import courses from '../courses/index.js'
 import files from '../files/index.js'
 import partners from '../partners/index.js'
 import programs from '../programs/index.js'
+import registrations from '../registrations/index.js'
 import users from '../users/index.js'
 
 const typeDefs = gql`
+  scalar Date
+
   type Query
   type Mutation
 `
@@ -29,6 +32,7 @@ let schema = makeExecutableSchema({
     files.typeDef,
     partners.typeDef,
     programs.typeDef,
+    registrations.typeDef,
     users.typeDef,
   ],
   resolvers: [
@@ -38,6 +42,7 @@ let schema = makeExecutableSchema({
     files.resolvers,
     partners.resolvers,
     programs.resolvers,
+    registrations.resolvers,
     users.resolvers,
   ],
 })
@@ -49,7 +54,7 @@ const models = {
   Course: courses.Course,
   Partner: partners.Partner,
   Program: programs.Program,
-  Registration: courses.Registration,
+  Registration: registrations.Registration,
   User: users.User,
 }
 
