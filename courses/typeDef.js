@@ -39,7 +39,7 @@ const typeDefs = gql`
 
   type Event {
     name: String
-    date: Date
+    datetime: DateTime
   }
 
   type CourseCompetency {
@@ -62,7 +62,7 @@ const typeDefs = gql`
   }
 
   type Course {
-    archived: Date @auth(requires: TEACHER)
+    archived: DateTime @auth(requires: TEACHER)
     assessments: [Assessment!] @auth(requires: TEACHER)
     banner: String
     code: ID!
@@ -82,7 +82,7 @@ const typeDefs = gql`
     load: CourseLoad
     name: String!
     partners: [Partner!]
-    published: Date @auth(requires: TEACHER)
+    published: DateTime @auth(requires: TEACHER)
     registration: Registration @auth
     registrations: [Registration!] @auth(requires: TEACHER)
     schedule: [Event!]

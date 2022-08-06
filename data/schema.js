@@ -17,6 +17,7 @@ import users from '../users/index.js'
 
 const typeDefs = gql`
   scalar Date
+  scalar DateTime
 
   type Query
   type Mutation

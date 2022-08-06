@@ -353,7 +353,7 @@ const resolvers = {
       // Restructure the format of the schedule
       if (course.schedule) {
         course.schedule = Object.entries(course.schedule).map(
-          ([name, date]) => ({ name, date })
+          ([name, date]) => ({ name, datetime: date })
         )
       }
 
