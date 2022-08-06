@@ -9,6 +9,7 @@ const typeDefs = gql`
   type Registration {
     date: Date
     email: String
+    group: Int
     id: ID!
     invite: RegistrationInvite
     user: User
