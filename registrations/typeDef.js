@@ -14,6 +14,10 @@ const typeDefs = gql`
     invite: RegistrationInvite
     user: User
   }
+
+  extend type Mutation {
+    updateGroup(id: ID!, group: Int!): Registration @auth(requires: TEACHER)
+  }
 `
 
 export default typeDefs
