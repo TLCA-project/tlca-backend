@@ -415,6 +415,85 @@ const resolvers = {
 
       return null
     },
+    async cloneCourse(_parent, args, { models, user }, _info) {
+      const { Assessment, Course } = models
+
+      // Clean up the optional args.
+      if (args.cloneCode?.trim().length === 0) {
+        args.cloneCode = undefined
+      }
+
+      const course = await Course.findOne({ code: args.code })
+      if (!course) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Can only clone a course that is archived.
+      if (!course.archived || !isCoordinator(course, user)) {
+        throw new UserInputError('COURSE_CLONING_FAILED')
+      }
+
+      // TODO: Can only clone a course with respect to its schedule.
+
+      // Clone the course.
+      const cloneDate = DateTime.now()
+      if (!args.cloneCode) {
+        args.cloneCode = `${course.code}_${cloneDate.toFormat(
+          'yyyy-MM-dd_HH-mm'
+        )}_cloned`
+      }
+
+      const clone = new Course(course)
+      clone.isNew = true
+
+      clone.published = undefined
+      clone.archived = undefined
+
+      clone._id = new mongoose.Types.ObjectId()
+      clone.clonedFrom = course._id
+      clone.code = args.cloneCode
+      clone.created = new Date()
+      clone.user = new mongoose.Types.ObjectId(user.id)
+
+      // Save the course into the database.
+      try {
+        const cloneCourse = await clone.save()
+
+        // Clone the assessments of the course.
+        const assessments = await Assessment.find({ course: course._id })
+        await Promise.all(
+          assessments.map(async (assessment) => {
+            const clone = new Assessment(assessment)
+            clone.isNew = true
+
+            clone._id = new mongoose.Types.ObjectId()
+            clone.clonedFrom = assessment._id
+            clone.course = cloneCourse._id
+            clone.created = new Date()
+            clone.user = new mongoose.Types.ObjectId(user.id)
+
+            await clone.save()
+          })
+        )
+
+        return cloneCourse
+      } catch (err) {
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+        }
+      }
+
+      return null
+    },
     async createCourse(_parent, args, { models, user }, _info) {
       const { Competency, Course, User } = models
 

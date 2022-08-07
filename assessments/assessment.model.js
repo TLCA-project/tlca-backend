@@ -65,6 +65,10 @@ const AssessmentSchema = new Schema({
   end: {
     type: Date,
   },
+  clonedFrom: {
+    type: Schema.ObjectId,
+    ref: 'Assessment',
+  },
   created: {
     type: Date,
     default: Date.now,
