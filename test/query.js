@@ -25,6 +25,7 @@ await Promise.all(
 describe('Test Course queries', () => {
   let testServer
   let teacher
+  let comp1
   let C1
 
   const user1 = {
@@ -34,6 +35,11 @@ describe('Test Course queries', () => {
     password: 'a6M?fC3$',
     provider: 'local',
     roles: ['user', 'teacher'],
+  }
+
+  const competency1 = {
+    code: 'C1',
+    name: 'Competency 1',
   }
 
   const course1 = {
@@ -81,8 +87,18 @@ describe('Test Course queries', () => {
     teacher.updateEmail(user1.email)
     await teacher.save()
 
+    // Create a new competency.
+    comp1 = new models.Competency(competency1)
+    await comp1.save()
+
     // Create a new course which is published.
     C1 = new models.Course(course1)
+    C1.competencies = [
+      {
+        competency: comp1._id,
+        category: 'basic',
+      },
+    ]
     C1.coordinator = teacher._id
     C1.published = new Date()
     await C1.save()
