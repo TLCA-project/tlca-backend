@@ -48,17 +48,21 @@ const typeDefs = gql`
     subcategory: String
   }
 
-  type CourseGroup {
-    name: String!
-    supervisor: User!
-  }
-
   type CourseLoad {
     ects: Int
     type: CourseLoadType
     weekload: Int
     theory: Int
     practice: Int
+  }
+
+  type CourseTeachingGroup {
+    name: String
+    supervisor: User!
+  }
+
+  type CourseWorkingGroup {
+    name: String
   }
 
   type Course {
@@ -71,7 +75,6 @@ const typeDefs = gql`
     coordinator: User!
     description: String!
     field: String
-    groups: [CourseGroup!] @auth(requires: TEACHER)
     hasRequestedInvite: Boolean @auth
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
@@ -90,9 +93,11 @@ const typeDefs = gql`
     span: Int
     tags: [String!]
     teachers: [User!]
+    teachingGroups: [CourseTeachingGroup!] @auth(requires: TEACHER)
     team: [User!]
     type: CourseType!
     visibility: Visibility!
+    workingGroups: [CourseWorkingGroup!] @auth(requires: TEACHER)
   }
 
   extend type Query {
@@ -106,9 +111,13 @@ const typeDefs = gql`
     subcategory: String
   }
 
-  input CourseGroupInput {
-    name: String!
+  input CourseTeachingGroupInput {
+    name: String
     supervisor: ID!
+  }
+
+  input CourseWorkingGroupInput {
+    name: String
   }
 
   extend type Mutation {
@@ -118,12 +127,13 @@ const typeDefs = gql`
     createCourse(
       code: String!
       competencies: [CourseCompetencyInput!]!
-      groups: [CourseGroupInput!]
+      teachingGroups: [CourseTeachingGroupInput!]
       name: String!
       description: String
       teachers: [ID!]
       type: CourseType
       visibility: Visibility
+      workingGroups: [CourseWorkingGroupInput!]
     ): Boolean! @auth(requires: TEACHER)
     publishCourse(code: ID!): Course @auth(requires: TEACHER)
     register(code: ID!): Course @auth(requires: STUDENT)

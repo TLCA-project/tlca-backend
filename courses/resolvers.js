@@ -91,16 +91,6 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
-    async groups(course, _args, { models }, _info) {
-      const { Course } = models
-
-      return await Course.populate(course, [
-        {
-          path: 'groups.supervisor',
-          model: 'User',
-        },
-      ]).then((a) => a.groups)
-    },
     async hasRequestedInvite(course, _args, { models, user }, _info) {
       const { Registration } = models
 
@@ -161,6 +151,16 @@ const resolvers = {
 
       return null
     },
+    async teachingGroups(course, _args, { models }, _info) {
+      const { Course } = models
+
+      return await Course.populate(course, [
+        {
+          path: 'groups.teaching.supervisor',
+          model: 'User',
+        },
+      ]).then((a) => a.groups?.teaching)
+    },
     team(course, _args, _context, _info) {
       const team = []
 
@@ -183,6 +183,9 @@ const resolvers = {
       }
 
       return team
+    },
+    workingGroups(course, _args, _context, _info) {
+      return course.groups?.working
     },
   },
   Query: {
@@ -498,11 +501,14 @@ const resolvers = {
       const { Competency, Course, User } = models
 
       // Clean up the optional args.
-      if (args.groups?.length === 0) {
-        args.groups = undefined
-      }
       if (args.teachers?.length === 0) {
         args.teachers = undefined
+      }
+      if (args.teachingGroups?.length === 0) {
+        args.teachingGroups = undefined
+      }
+      if (args.workingGroups?.length === 0) {
+        args.workingGroups = undefined
       }
 
       // Create the course Mongoose object.
@@ -514,13 +520,20 @@ const resolvers = {
         }))
       )
       course.coordinator = user.id
-      if (args.groups) {
-        course.groups = await Promise.all(
-          args.groups.map(async (g) => ({
+      course.groups = {}
+      if (args.teachingGroups) {
+        course.groups.teaching = await Promise.all(
+          args.teachingGroups.map(async (g) => ({
             ...g,
             supervisor: (await User.findOne({ username: g.supervisor }))?._id,
           }))
         )
+      }
+      if (args.workingGroups) {
+        course.groups.working = args.workingGroups
+      }
+      if (!course.groups.teaching && !course.groups.working) {
+        course.groups = undefined
       }
       if (args.teachers) {
         course.teachers = await Promise.all(

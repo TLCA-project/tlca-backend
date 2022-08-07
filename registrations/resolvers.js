@@ -84,8 +84,8 @@ const resolvers = {
       // for a course for which groups have been defined.
       if (
         !isCoordinator(course, user) ||
-        !course.groups?.length ||
-        !(args.group >= 0 && args.group < course.groups.length)
+        !course.groups?.teaching?.length ||
+        !(args.group >= 0 && args.group < course.groups.teaching.length)
       ) {
         throw new UserInputError('GROUP_ASSIGNMENT_FAILED')
       }

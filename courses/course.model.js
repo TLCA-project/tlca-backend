@@ -24,24 +24,6 @@ const CompetencySchema = new Schema(
   }
 )
 
-const GroupSchema = new Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    supervisor: {
-      type: Schema.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-  },
-  {
-    id: false,
-    _id: false,
-  }
-)
-
 const ProgressStepSchema = new Schema(
   {
     date: {
@@ -85,6 +67,37 @@ const ScheduleSchema = new Schema(
     },
     evaluationsEnd: {
       type: Date,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
+const TeachingGroupSchema = new Schema(
+  {
+    name: {
+      type: String,
+      trim: true,
+    },
+    supervisor: {
+      type: Schema.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
+const WorkingGroupSchema = new Schema(
+  {
+    name: {
+      type: String,
+      trim: true,
     },
   },
   {
@@ -199,8 +212,14 @@ const CourseSchema = new Schema(
       default: undefined,
     },
     groups: {
-      type: [GroupSchema],
-      default: undefined,
+      teaching: {
+        type: [TeachingGroupSchema],
+        default: undefined,
+      },
+      working: {
+        type: [WorkingGroupSchema],
+        default: undefined,
+      },
     },
     progressGuide: {
       type: [ProgressStepSchema],
@@ -251,11 +270,15 @@ CourseSchema.pre('validate', function (next) {
     this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
   }
 
-  // Group names must be all different.
-  if (this.groups?.length) {
+  // Teaching group names must be all different.
+  if (this.groups?.teaching?.length) {
     const groups = new Set()
-    if (this.groups.some((g) => groups.size === groups.add(g.name).size)) {
-      this.invalidate('groups', 'DUPLICATE_GROUP_NAMES')
+    if (
+      this.groups.teaching
+        .filter((g) => g.name?.length)
+        .some((g) => groups.size === groups.add(g.name).size)
+    ) {
+      this.invalidate('groups', 'DUPLICATE_TEACHING_GROUP_NAMES')
     }
   }
 
