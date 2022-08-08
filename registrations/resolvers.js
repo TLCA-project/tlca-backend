@@ -1,16 +1,14 @@
 import { UserInputError } from 'apollo-server'
 
-function isCoordinator(course, user) {
-  const userId = user?.id
-  return (course.coordinator._id || course.coordinator).toString() === userId
-}
+import { isCoordinator } from '../lib/courses.js'
 
 const resolvers = {
-  RegistrationInvite: {
+  RegistrationInvitation: {
     REQUESTED: 'requested',
     SENT: 'sent',
   },
   Mutation: {
+    // Accept an invitation request made by a user/student for a given course.
     async acceptInvitationRequest(_parent, args, { models, user }, _info) {
       const { Course, Registration, User } = models
 
@@ -20,11 +18,11 @@ const resolvers = {
       }
 
       // Can only accept invitation request if there is one.
-      if (registration.invite !== 'requested') {
+      if (registration.invitation !== 'requested') {
         throw new UserInputError('INVITATION_REQUEST_ACCEPTANCE_FAILED')
       }
 
-      const course = await Course.findOne({ _id: registration.course })
+      const course = await Course.findOne({ _id: registration.course }).lean()
       if (!course) {
         throw new UserInputError('COURSE_NOT_FOUND')
       }
@@ -43,7 +41,7 @@ const resolvers = {
       // TODO: Can only accept an invitation request when the course is not finished.
 
       // Accept the invitation request.
-      registration.invite = undefined
+      registration.invitation = undefined
 
       // Save the registration into the database.
       try {
@@ -62,8 +60,11 @@ const resolvers = {
 
       return null
     },
+    // Update the teaching or working group associated to this registration.
     async updateGroup(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
+
+      const groupType = args.type.toLowerCase()
 
       const registration = await Registration.findOne({ _id: args.id })
       if (!registration) {
@@ -71,11 +72,11 @@ const resolvers = {
       }
 
       // Group can only be assigned for confirmed registrations.
-      if (registration.invite) {
+      if (registration.invitation) {
         throw new UserInputError('GROUP_ASSIGNMENT_FAILED')
       }
 
-      const course = await Course.findOne({ _id: registration.course })
+      const course = await Course.findOne({ _id: registration.course }).lean()
       if (!course) {
         throw new UserInputError('COURSE_NOT_FOUND')
       }
@@ -84,8 +85,9 @@ const resolvers = {
       // for a course for which groups have been defined.
       if (
         !isCoordinator(course, user) ||
-        !course.groups?.teaching?.length ||
-        !(args.group >= 0 && args.group < course.groups.teaching.length)
+        !course.groups ||
+        !course.groups[groupType]?.length ||
+        !(args.group >= 0 && args.group < course.groups[groupType].length)
       ) {
         throw new UserInputError('GROUP_ASSIGNMENT_FAILED')
       }
@@ -93,7 +95,10 @@ const resolvers = {
       // TODO: Can only update the group when the course is not finished.
 
       // Update the group assignment of the student.
-      registration.group = args.group
+      if (!registration.group) {
+        registration.group = {}
+      }
+      registration.group[groupType] = args.group
 
       // Save the registration into the database.
       try {

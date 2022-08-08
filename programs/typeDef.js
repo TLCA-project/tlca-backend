@@ -19,9 +19,9 @@ const typeDefs = gql`
   }
 
   enum ProgramVisibility {
-    PUBLIC
     INVITE_ONLY
     PRIVATE
+    PUBLIC
   }
 
   type ProgramCourse {
@@ -36,7 +36,7 @@ const typeDefs = gql`
     courses: [ProgramCourse!]!
     description: String!
     field: String
-    hasRequestedInvite: Boolean @auth
+    hasRequestedInvitation: Boolean @auth
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
     isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
@@ -52,8 +52,8 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    programs(offset: Int, limit: Int, view: ProgramView): [Program!]!
     program(code: ID!): Program
+    programs(offset: Int, limit: Int, view: ProgramView): [Program!]!
   }
 
   input ProgramCourseInput {
@@ -65,11 +65,11 @@ const typeDefs = gql`
     createProgram(
       code: String!
       courses: [ProgramCourseInput!]!
-      name: String!
       description: String
+      name: String!
       type: ProgramType
       visibility: ProgramVisibility
-    ): Boolean! @auth(requires: TEACHER)
+    ): Program @auth(requires: TEACHER)
   }
 `
 

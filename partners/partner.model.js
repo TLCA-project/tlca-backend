@@ -4,25 +4,23 @@ import { getPathCompleter } from '../lib/models.js'
 const { model, Schema } = mongoose
 
 const PartnerSchema = new Schema({
+  abbreviation: {
+    type: String,
+    trim: true,
+  },
+  banner: {
+    type: String,
+    trim: true,
+  },
   code: {
     type: String,
     trim: true,
     required: 'Code cannot be blank.',
     unique: true,
   },
-  name: {
-    type: String,
-    trim: true,
-    required: 'Name cannot be blank.',
-  },
-  abbreviation: {
-    type: String,
-    trim: true,
-  },
-  representative: {
-    type: Schema.ObjectId,
-    ref: 'User',
-    required: 'Representative cannot be blank.',
+  created: {
+    type: Date,
+    default: Date.now,
   },
   description: {
     type: String,
@@ -32,21 +30,23 @@ const PartnerSchema = new Schema({
     type: String,
     trim: true,
   },
-  banner: {
+  name: {
     type: String,
     trim: true,
+    required: 'Name cannot be blank.',
   },
-  website: {
-    type: String,
-    trim: true,
-  },
-  created: {
-    type: Date,
-    default: Date.now,
+  representative: {
+    type: Schema.ObjectId,
+    ref: 'User',
+    required: 'Representative cannot be blank.',
   },
   user: {
     type: Schema.ObjectId,
     ref: 'User',
+  },
+  website: {
+    type: String,
+    trim: true,
   },
 })
 

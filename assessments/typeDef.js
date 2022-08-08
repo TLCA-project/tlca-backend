@@ -2,13 +2,13 @@ import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   enum AssessmentCategory {
-    QUIZ
-    EXERCISE
+    CASESTUDY
     CODING
+    EXERCISE
+    INTERVIEW
     MISSION
     PROJECT
-    INTERVIEW
-    CASESTUDY
+    QUIZ
   }
 
   type AssessmentCompetency {
@@ -23,10 +23,10 @@ const typeDefs = gql`
     competencies: [AssessmentCompetency!]!
     course: Course!
     description: String!
-    end: Date
+    end: DateTime
     id: ID!
     name: String!
-    start: Date
+    start: DateTime
   }
 
   extend type Query {
@@ -45,11 +45,11 @@ const typeDefs = gql`
       code: String
       competencies: [AssessmentCompetencyInput!]!
       course: ID!
-      description: String
-      end: Date
+      description: String!
+      end: DateTime
       name: String!
-      start: Date
-    ): ID @auth(requires: TEACHER)
+      start: DateTime
+    ): Assessment @auth(requires: TEACHER)
   }
 `
 

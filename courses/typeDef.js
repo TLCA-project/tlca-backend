@@ -7,8 +7,8 @@ const typeDefs = gql`
   }
 
   enum CourseLoadType {
-    WEEKLY
     THEO_PRAC
+    WEEKLY
   }
 
   enum CourseStatus {
@@ -31,29 +31,39 @@ const typeDefs = gql`
     USER
   }
 
+  enum GroupType {
+    TEACHING
+    WORKING
+  }
+
   enum Visibility {
-    PUBLIC
     INVITE_ONLY
     PRIVATE
+    PUBLIC
   }
 
   type Event {
-    name: String
     datetime: DateTime
+    name: String
   }
 
   type CourseCompetency {
-    competency: Competency!
     category: CompetencyCategory!
+    competency: Competency!
     subcategory: String
+  }
+
+  type CourseGroup {
+    teaching: [CourseTeachingGroup!]
+    working: [CourseWorkingGroup!]
   }
 
   type CourseLoad {
     ects: Int
+    practice: Int
+    theory: Int
     type: CourseLoadType
     weekload: Int
-    theory: Int
-    practice: Int
   }
 
   type CourseTeachingGroup {
@@ -75,7 +85,8 @@ const typeDefs = gql`
     coordinator: User!
     description: String!
     field: String
-    hasRequestedInvite: Boolean @auth
+    groups: CourseGroup @auth(requires: TEACHER)
+    hasRequestedInvitation: Boolean @auth
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
     isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
@@ -93,11 +104,9 @@ const typeDefs = gql`
     span: Int
     tags: [String!]
     teachers: [User!]
-    teachingGroups: [CourseTeachingGroup!] @auth(requires: TEACHER)
     team: [User!]
     type: CourseType!
     visibility: Visibility!
-    workingGroups: [CourseWorkingGroup!] @auth(requires: TEACHER)
   }
 
   extend type Query {
@@ -109,6 +118,11 @@ const typeDefs = gql`
     competency: ID!
     category: CompetencyCategory!
     subcategory: String
+  }
+
+  input CourseGroupInput {
+    teaching: [CourseTeachingGroupInput!]
+    working: [CourseWorkingGroupInput!]
   }
 
   input CourseTeachingGroupInput {
@@ -127,17 +141,16 @@ const typeDefs = gql`
     createCourse(
       code: String!
       competencies: [CourseCompetencyInput!]!
-      teachingGroups: [CourseTeachingGroupInput!]
+      groups: CourseGroupInput
       name: String!
       description: String
       teachers: [ID!]
       type: CourseType
       visibility: Visibility
-      workingGroups: [CourseWorkingGroupInput!]
-    ): Boolean! @auth(requires: TEACHER)
+    ): Course @auth(requires: TEACHER)
     publishCourse(code: ID!): Course @auth(requires: TEACHER)
     register(code: ID!): Course @auth(requires: STUDENT)
-    requestInvite(code: ID!): Course @auth
+    requestInvitation(code: ID!): Course @auth
   }
 `
 

@@ -8,7 +8,7 @@ const typeDefs = gql`
 
   type Competency {
     code: ID!
-    created: Date! @auth(requires: ADMIN)
+    created: DateTime! @auth(requires: ADMIN)
     description: String
     isOwner: Boolean @auth
     isPublic: Boolean
@@ -33,7 +33,7 @@ const typeDefs = gql`
       public: Boolean
       tags: [String!]
       type: CompetencyType
-    ): Boolean! @auth(requires: TEACHER)
+    ): Competency @auth(requires: TEACHER)
   }
 `
 

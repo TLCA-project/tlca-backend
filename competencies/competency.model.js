@@ -9,21 +9,18 @@ const CompetencySchema = new Schema({
     required: 'Code cannot be blank.',
     unique: true,
   },
+  created: {
+    type: Date,
+    default: Date.now,
+  },
+  description: {
+    type: String,
+  },
   name: {
     type: String,
     default: '',
     trim: true,
     required: 'Name cannot be blank.',
-  },
-  description: {
-    type: String,
-  },
-  type: {
-    type: String,
-    enum: ['theoretical', 'practical'],
-  },
-  public: {
-    type: Boolean,
   },
   partners: {
     type: [
@@ -34,6 +31,9 @@ const CompetencySchema = new Schema({
     ],
     default: undefined,
   },
+  public: {
+    type: Boolean,
+  },
   tags: {
     type: [
       {
@@ -43,9 +43,9 @@ const CompetencySchema = new Schema({
     ],
     default: undefined,
   },
-  created: {
-    type: Date,
-    default: Date.now,
+  type: {
+    type: String,
+    enum: ['theoretical', 'practical'],
   },
   user: {
     type: Schema.ObjectId,

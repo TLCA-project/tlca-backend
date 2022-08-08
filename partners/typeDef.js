@@ -14,8 +14,8 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    partners(limit: Int): [Partner!]!
     partner(code: ID!): Partner
+    partners(limit: Int): [Partner!]!
   }
 `
 

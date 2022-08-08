@@ -9,13 +9,13 @@ const CompetencySchema = new Schema(
       type: Schema.ObjectId,
       ref: 'Competency',
     },
+    optional: {
+      type: Boolean,
+    },
     stars: {
       type: Number,
       min: 1,
       max: 3,
-    },
-    optional: {
-      type: Boolean,
     },
   },
   {
@@ -25,53 +25,53 @@ const CompetencySchema = new Schema(
 )
 
 const AssessmentSchema = new Schema({
-  code: {
-    type: String,
-  },
-  name: {
-    type: String,
-    trim: true,
-    required: 'Name cannot be blank.',
-  },
   category: {
     type: String,
     enum: [
-      'quiz',
-      'exercise',
+      'casestudy',
       'coding',
+      'exercise',
+      'interview',
       'mission',
       'project',
-      'interview',
-      'casestudy',
+      'quiz',
     ],
     required: 'Category cannot be blank.',
   },
-  description: {
+  clonedFrom: {
+    type: Schema.ObjectId,
+    ref: 'Assessment',
+  },
+  code: {
     type: String,
-    required: 'Description cannot be blank.',
+  },
+  competencies: {
+    type: [CompetencySchema],
+    default: undefined,
   },
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
     required: 'Course cannot be blank.',
   },
-  competencies: {
-    type: [CompetencySchema],
-    default: undefined,
-  },
-  start: {
+  created: {
     type: Date,
+    default: Date.now,
+  },
+  description: {
+    type: String,
+    required: 'Description cannot be blank.',
   },
   end: {
     type: Date,
   },
-  clonedFrom: {
-    type: Schema.ObjectId,
-    ref: 'Assessment',
+  name: {
+    type: String,
+    trim: true,
+    required: 'Name cannot be blank.',
   },
-  created: {
+  start: {
     type: Date,
-    default: Date.now,
   },
   user: {
     type: Schema.ObjectId,

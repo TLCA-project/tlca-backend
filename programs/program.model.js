@@ -20,42 +20,17 @@ const CourseSchema = new Schema(
 )
 
 const ProgramSchema = new Schema({
+  archived: {
+    type: Date,
+  },
+  banner: {
+    type: String,
+  },
   code: {
     type: String,
     trim: true,
     required: 'Code cannot be blank.',
     unique: true,
-  },
-  name: {
-    type: String,
-    trim: true,
-    required: 'Name cannot be blank.',
-  },
-  type: {
-    type: String,
-    enum: ['training', 'uprogram'],
-    default: 'training',
-    required: 'Type cannot be blank.',
-  },
-  banner: {
-    type: String,
-  },
-  field: {
-    type: String,
-    trim: true,
-  },
-  tags: {
-    type: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
-    default: undefined,
-  },
-  language: {
-    type: String,
-    trim: true,
   },
   coordinator: {
     type: Schema.ObjectId,
@@ -66,28 +41,53 @@ const ProgramSchema = new Schema({
     type: [CourseSchema],
     default: undefined,
   },
+  created: {
+    type: Date,
+    default: Date.now,
+  },
   description: {
     type: String,
     required: 'Description cannot be blank.',
+  },
+  field: {
+    type: String,
+    trim: true,
+  },
+  language: {
+    type: String,
+    trim: true,
+  },
+  name: {
+    type: String,
+    trim: true,
+    required: 'Name cannot be blank.',
+  },
+  published: {
+    type: Date,
+  },
+  tags: {
+    type: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    default: undefined,
+  },
+  type: {
+    type: String,
+    enum: ['training', 'uprogram'],
+    default: 'training',
+    required: 'Type cannot be blank.',
+  },
+  user: {
+    type: Schema.ObjectId,
+    ref: 'User',
   },
   visibility: {
     type: String,
     enum: ['public', 'invite-only', 'private'],
     default: 'public',
-  },
-  published: {
-    type: Date,
-  },
-  archived: {
-    type: Date,
-  },
-  created: {
-    type: Date,
-    default: Date.now,
-  },
-  user: {
-    type: Schema.ObjectId,
-    ref: 'User',
   },
 })
 

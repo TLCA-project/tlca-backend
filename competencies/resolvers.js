@@ -19,22 +19,23 @@ const resolvers = {
     // Retrieve the detailed information about the partners.
     async partners(competency, _args, { models }, _info) {
       const { Partner } = models
-
-      return await Partner.find({ _id: { $in: competency.partners } })
+      return await Partner.find({ _id: { $in: competency.partners } }).lean()
     },
     // Retrieve the detailed information about the user
     // who created this competency.
     async user(competency, _args, { models }, _info) {
       const { User } = models
-      return await User.findOne({ _id: competency.user })
+      return await User.findOne({ _id: competency.user }).lean()
     },
   },
   Query: {
+    // Retrieve all the competencies
+    // that are available to the connected user.
     async competencies(_parent, args, { models, user }, _info) {
       const { Competency } = models
 
       // Basically, can only retrieve competencies that are:
-      // public.
+      // - public.
       const filter = { $or: [{ public: true }] }
 
       // If a user is connected,
@@ -60,25 +61,27 @@ const resolvers = {
       const limit = args.limit ?? undefined
 
       // Retrieve all the competencies satisfying the conditions defined hereabove.
-      return await Competency.find(filter, null, { skip, limit })
+      return await Competency.find(filter, null, { skip, limit }).lean()
     },
+    // Retrieve one given competency given its 'code'.
     async competency(_parent, args, { models, user }, _info) {
       const { Competency } = models
 
-      let competency = await Competency.findOne({ code: args.code })
+      const competency = await Competency.findOne({ code: args.code }).lean()
       if (!competency) {
-        throw new UserInputError('Competency not found.')
+        throw new UserInputError('COMPETENCY_NOT_FOUND')
       }
 
       // Basically, can only access own competencies and those which are public
       if (!(competency.user._id.toString() === user.id || competency.public)) {
-        throw new UserInputError('Competency not found.')
+        throw new UserInputError('COMPETENCY_NOT_FOUND')
       }
 
       return competency
     },
   },
   Mutation: {
+    // Create a new competency from the specified parameters.
     async createCompetency(_parent, args, { models, user }, _info) {
       const { Competency, Partner } = models
 
@@ -101,7 +104,7 @@ const resolvers = {
       if (args.partners) {
         competency.partners = await Promise.all(
           args.partners.map(
-            async (p) => (await Partner.findOne({ code: p }))?._id
+            async (p) => (await Partner.exists({ code: p }).lean())?._id
           )
         )
       }
@@ -109,8 +112,7 @@ const resolvers = {
 
       // Save the competency into the database.
       try {
-        await competency.save()
-        return true
+        return await competency.save()
       } catch (err) {
         switch (err.name) {
           case 'MongoServerError': {

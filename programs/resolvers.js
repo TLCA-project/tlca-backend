@@ -12,9 +12,9 @@ const resolvers = {
     UPROGRAM: 'uprogram',
   },
   ProgramVisibility: {
-    PUBLIC: 'public',
     INVITE_ONLY: 'invite-only',
     PRIVATE: 'private',
+    PUBLIC: 'public',
   },
   ProgramView: {
     COORDINATOR: 'coordinator',
@@ -25,8 +25,7 @@ const resolvers = {
     // Retrieve the detailed information about the coordinator.
     async coordinator(program, _args, { models }, _info) {
       const { User } = models
-
-      return await User.findOne({ _id: program.coordinator })
+      return await User.findOne({ _id: program.coordinator }).lean()
     },
     // Retrieve whether this program is archived.
     isArchived(program, _args, _context, _info) {
@@ -42,11 +41,14 @@ const resolvers = {
     async partners(program, _args, { models }, _info) {
       const { Course, Partner } = models
 
-      // Retrieve all the courses.
-      const courses = await Course.find(
-        { _id: { $in: program.courses.map((c) => c.course._id || c.course) } },
-        'partners'
+      // Retrieve all the courses from this program.
+      const programCourses = program.courses.map(
+        (c) => c.course._id || c.course
       )
+      const courses = await Course.find(
+        { _id: { $in: programCourses } },
+        'partners'
+      ).lean()
 
       // Retrieve all the partners.
       const partners = []
@@ -54,7 +56,7 @@ const resolvers = {
         partners.push(...c.partners)
       })
 
-      return await Partner.find({ _id: { $in: partners } })
+      return await Partner.find({ _id: { $in: partners } }).lean()
     },
     // Retrieve the status of the program according to
     // it's publication and archive dates.
@@ -242,8 +244,7 @@ const resolvers = {
 
       // Save the program into the database.
       try {
-        await program.save()
-        return true
+        return await program.save()
       } catch (err) {
         switch (err.name) {
           case 'MongoServerError': {

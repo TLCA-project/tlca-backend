@@ -134,7 +134,7 @@ describe('Test Course queries', () => {
   it("should return an AuthenticationError when asking for the 'registration' field without being authenticated", async () => {
     const result = await testServer.executeOperation({
       query:
-        'query GetCourse($code: ID!) { course(code: $code) { code, registration { date } } }',
+        'query GetCourse($code: ID!) { course(code: $code) { code, registration { datetime } } }',
       variables: { code: 'C1' },
     })
 
@@ -152,7 +152,7 @@ describe('Test Course queries', () => {
     const result = await testServer.executeOperation(
       {
         query:
-          'query GetCourse($code: ID!) { course(code: $code) { code, registration { date } } }',
+          'query GetCourse($code: ID!) { course(code: $code) { code, registration { datetime } } }',
         variables: { code: 'C1' },
       },
       {

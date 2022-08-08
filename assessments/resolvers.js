@@ -1,19 +1,16 @@
 import { UserInputError } from 'apollo-server'
 
-function isCoordinator(course, user) {
-  const userId = user?.id
-  return (course.coordinator._id || course.coordinator).toString() === userId
-}
+import { isCoordinator } from '../lib/courses.js'
 
 const resolvers = {
   AssessmentCategory: {
-    QUIZ: 'quiz',
-    EXERCISE: 'exercise',
+    CASESTUDY: 'casestudy',
     CODING: 'coding',
+    EXERCISE: 'exercise',
+    INTERVIEW: 'interview',
     MISSION: 'mission',
     PROJECT: 'project',
-    INTERVIEW: 'interview',
-    CASESTUDY: 'casestudy',
+    QUIZ: 'quiz',
   },
   Assessment: {
     // Retrieve the detailed information about the competencies.
@@ -29,18 +26,20 @@ const resolvers = {
     },
   },
   Query: {
+    // Retrieve one given assessment given its 'id'.
     async assessment(_parent, args, { models }, _info) {
       const { Assessment } = models
 
-      const assessment = await Assessment.findOne({ _id: args.id })
+      const assessment = await Assessment.findOne({ _id: args.id }).lean()
       if (!assessment) {
-        throw new UserInputError('Assessment not found.')
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
       return assessment
     },
   },
   Mutation: {
+    // Create a new assessment from the specified parameters.
     async createAssessment(_parent, args, { models, user }, _info) {
       const { Assessment, Competency, Course } = models
 
@@ -60,30 +59,40 @@ const resolvers = {
 
       // Retrieve the course for which to create an assessment.
       const course = await Course.findOne({ code: args.course })
+        .lean()
+        .populate({
+          path: 'competencies.competency',
+          select: 'code',
+          model: 'Competency',
+        })
       if (!course || !isCoordinator(course, user)) {
-        throw new UserInputError('Course not found.')
+        throw new UserInputError('COURSE_NOT_FOUND')
       }
 
       // Code must be unique among assessments from the same course.
-      if (args.code) {
-        const assessments = await Assessment.find({
+      if (
+        args.code &&
+        (await Assessment.exists({
           course: course._id,
           code: args.code,
+        }))
+      ) {
+        throw new UserInputError('INVALID_CODE', {
+          formErrors: {
+            code: 'The specified code already exists',
+          },
         })
-        if (assessments?.length) {
-          throw new UserInputError('INVALID_CODE', {
-            formErrors: {
-              code: 'The specified code already exists',
-            },
-          })
-        }
       }
 
-      // TODO: populate competencies with codes
-      const courseCompetencies = []
-
       // Check that the constraints are satisfied.
-      if (args.competencies.some((c) => courseCompetencies.includes(c))) {
+      const courseCompetencies = course.competencies.map(
+        (c) => c.competency.code
+      )
+      if (
+        args.competencies.some(
+          (c) => !courseCompetencies.includes(c.competency)
+        )
+      ) {
         throw new UserInputError('INVALID_COMPETENCIES')
       }
 
@@ -100,8 +109,7 @@ const resolvers = {
 
       // Save the assessment into the database.
       try {
-        await assessment.save()
-        return assessment._id
+        return await assessment.save()
       } catch (err) {
         const formErrors = {}
 

@@ -1,17 +1,13 @@
 import mongoose from 'mongoose'
 import validator from 'validator'
 
-const { Schema } = mongoose
+const { model, Schema } = mongoose
 
 const validateLocalStrategyEmail = function (email) {
   return validator.isEmail(email, { require_tld: false })
 }
 
 const RegistrationSchema = new Schema({
-  user: {
-    type: Schema.ObjectId,
-    ref: 'User',
-  },
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
@@ -21,15 +17,23 @@ const RegistrationSchema = new Schema({
     type: Date,
     default: Date.now,
   },
-  invite: {
-    type: String,
-    enum: ['requested', 'sent'],
-  },
   email: {
     type: String,
     lowercase: true,
     trim: true,
     validate: [validateLocalStrategyEmail, 'Please fill a valid email address'],
+  },
+  group: {
+    teaching: {
+      type: Number,
+    },
+    working: {
+      type: Number,
+    },
+  },
+  invitation: {
+    type: String,
+    enum: ['requested', 'sent'],
   },
   stars: {
     basic: {
@@ -41,9 +45,10 @@ const RegistrationSchema = new Schema({
       default: 0,
     },
   },
-  group: {
-    type: Number,
+  user: {
+    type: Schema.ObjectId,
+    ref: 'User',
   },
 })
 
-export default mongoose.model('Registration', RegistrationSchema)
+export default model('Registration', RegistrationSchema)

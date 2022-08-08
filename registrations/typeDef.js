@@ -1,23 +1,31 @@
 import { gql } from 'apollo-server'
 
 const typeDefs = gql`
-  enum RegistrationInvite {
+  enum RegistrationInvitation {
     REQUESTED
     SENT
   }
 
+  type RegistrationGroup {
+    teaching: Int
+    working: Int
+  }
+
   type Registration {
-    date: Date
+    datetime: DateTime!
     email: String
-    group: Int
+    group: RegistrationGroup
     id: ID!
-    invite: RegistrationInvite
+    invitation: RegistrationInvitation
     user: User
   }
 
   extend type Mutation {
     acceptInvitationRequest(id: ID!): Registration @auth(requires: TEACHER)
-    updateGroup(id: ID!, group: Int!): Registration @auth(requires: TEACHER)
+    removeGroup(id: ID!, group: Int!, type: GroupType!): Registration
+      @auth(requires: TEACHER)
+    updateGroup(id: ID!, group: Int!, type: GroupType!): Registration
+      @auth(requires: TEACHER)
   }
 `
 

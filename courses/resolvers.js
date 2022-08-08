@@ -2,15 +2,7 @@ import { UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 
-function isCoordinator(course, user) {
-  const userId = user?.id
-  return (course.coordinator._id || course.coordinator).toString() === userId
-}
-
-function isTeacher(course, user) {
-  const userId = user?.id
-  return !!course.teachers?.some((t) => (t._id || t).toString() === userId)
-}
+import { isCoordinator, isTeacher } from '../lib/courses.js'
 
 function canEnroll(schedule, now) {
   if (schedule) {
@@ -76,9 +68,9 @@ const resolvers = {
     USER: 'user',
   },
   Visibility: {
-    PUBLIC: 'public',
     INVITE_ONLY: 'invite-only',
     PRIVATE: 'private',
+    PUBLIC: 'public',
   },
   Course: {
     async assessments(course, _args, { models }, _info) {
@@ -91,14 +83,24 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
-    async hasRequestedInvite(course, _args, { models, user }, _info) {
+    async groups(course, _args, { models }, _info) {
+      const { Course } = models
+
+      return {
+        teaching: await Course.populate(course, [
+          { path: 'groups.teaching.supervisor', model: 'User' },
+        ]).then((a) => a.groups?.teaching || []),
+        working: course.groups?.working || [],
+      }
+    },
+    async hasRequestedInvitation(course, _args, { models, user }, _info) {
       const { Registration } = models
 
       const registration = await Registration.findOne({
         course: course._id,
         user: user.id,
       })
-      return registration?.invite === 'requested'
+      return registration?.invitation === 'requested'
     },
     isArchived(course, _args, _context, _info) {
       return !!course.archived
@@ -118,7 +120,7 @@ const resolvers = {
         user: user.id,
       })
 
-      return !!registration && !registration.invite
+      return !!registration && !registration.invitation
     },
     isTeacher(course, _args, { user }, _info) {
       return !!course.teachers?.some((t) => (t._id || t).toString() === user.id)
@@ -136,7 +138,11 @@ const resolvers = {
     async registrations(course, _args, { models }, _info) {
       const { Registration } = models
 
-      return await Registration.find({ course: course._id }).populate('user')
+      const registrations = await Registration.find({ course: course._id })
+        .lean()
+        .populate('user')
+
+      return registrations.map((r) => ({ ...r, datetime: r.date, id: r._id }))
     },
     status(course, _args, _content, _info) {
       if (!course.published) {
@@ -150,16 +156,6 @@ const resolvers = {
       }
 
       return null
-    },
-    async teachingGroups(course, _args, { models }, _info) {
-      const { Course } = models
-
-      return await Course.populate(course, [
-        {
-          path: 'groups.teaching.supervisor',
-          model: 'User',
-        },
-      ]).then((a) => a.groups?.teaching)
     },
     team(course, _args, _context, _info) {
       const team = []
@@ -184,9 +180,9 @@ const resolvers = {
 
       return team
     },
-    workingGroups(course, _args, _context, _info) {
-      return course.groups?.working
-    },
+    // workingGroups(course, _args, _context, _info) {
+    //   return course.groups?.working
+    // },
   },
   Query: {
     async courses(_parent, args, { models, user }, _info) {
@@ -654,7 +650,7 @@ const resolvers = {
 
       throw new UserInputError('REGISTRATION_FAILED')
     },
-    async requestInvite(_parent, args, { models, user }, _info) {
+    async requestInvitation(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
 
       const course = await Course.findOne({ code: args.code })
@@ -662,25 +658,25 @@ const resolvers = {
         throw new UserInputError('Course not found.')
       }
 
-      // Can only request an invite for
+      // Can only request an invitation for
       // a published course with 'invite-only' visibility.
       if (
         !course.published ||
         course.archived ||
         course.visibility !== 'invite-only'
       ) {
-        throw new UserInputError('INVITE_REQUEST_FAILED')
+        throw new UserInputError('INVITATION_REQUEST_FAILED')
       }
 
-      // Coordinator and teacher cannot request an invite for their own course.
+      // Coordinator and teacher cannot request an invitation for their own course.
       if (isCoordinator(course, user) || isTeacher(course, user)) {
-        throw new UserInputError('INVITE_REQUEST_FAILED')
+        throw new UserInputError('INVITATION_REQUEST_FAILED')
       }
 
-      // Can only request an invite if it agrees with the schedule of the course.
+      // Can only request an invitation if it agrees with the schedule of the course.
       const now = DateTime.now()
       if (!canEnroll(course.schedule, now)) {
-        throw new UserInputError('INVITE_REQUEST_FAILED')
+        throw new UserInputError('INVITATION_REQUEST_FAILED')
       }
 
       // Check whether there is not already a registration.
@@ -690,16 +686,16 @@ const resolvers = {
         user: userId,
       })
       if (registration) {
-        throw new UserInputError('INVITE_REQUEST_FAILED')
+        throw new UserInputError('INVITATION_REQUEST_FAILED')
       }
 
       // Create a new registration for the user,
-      // representing the invite request.
+      // representing the invitation request.
       try {
         const registration = new Registration({
           course: course._id,
           date: now,
-          invite: 'requested',
+          invitation: 'requested',
           user: userId,
         })
         course.registration = await registration.save()
@@ -709,7 +705,7 @@ const resolvers = {
         console.log(err)
       }
 
-      throw new UserInputError('INVITE_REQUEST_FAILED')
+      throw new UserInputError('INVITATION_REQUEST_FAILED')
     },
   },
 }

@@ -5,13 +5,13 @@ const { Schema } = mongoose
 
 const CompetencySchema = new Schema(
   {
-    competency: {
-      type: Schema.ObjectId,
-      ref: 'Competency',
-    },
     category: {
       type: String,
       enum: ['basic', 'advanced'],
+    },
+    competency: {
+      type: Schema.ObjectId,
+      ref: 'Competency',
     },
     subcategory: {
       type: String,
@@ -31,13 +31,13 @@ const ProgressStepSchema = new Schema(
       required: true,
     },
     progress: {
-      basic: {
+      advanced: {
         type: Number,
         min: 0,
         max: 100,
         required: true,
       },
-      advanced: {
+      basic: {
         type: Number,
         min: 0,
         max: 100,
@@ -53,16 +53,16 @@ const ProgressStepSchema = new Schema(
 
 const ScheduleSchema = new Schema(
   {
-    start: {
-      type: Date,
-    },
     end: {
       type: Date,
     },
-    registrationsStart: {
+    start: {
       type: Date,
     },
     registrationsEnd: {
+      type: Date,
+    },
+    registrationsStart: {
       type: Date,
     },
     evaluationsEnd: {
@@ -108,33 +108,61 @@ const WorkingGroupSchema = new Schema(
 
 const CourseSchema = new Schema(
   {
+    archived: {
+      type: Date,
+    },
+    banner: {
+      type: String,
+    },
+    clonedFrom: {
+      type: Schema.ObjectId,
+      ref: 'Course',
+    },
     code: {
       type: String,
       trim: true,
       required: 'Code cannot be blank.',
       unique: true,
     },
-    name: {
+    colophon: {
       type: String,
       trim: true,
-      required: 'Name cannot be blank.',
     },
-    type: {
-      type: String,
-      enum: ['project', 'training', 'ucourse', 'unit'],
-      default: 'unit',
-      required: 'Type cannot be blank.',
-    },
-    banner: {
-      type: String,
-    },
-    schedule: {
-      type: ScheduleSchema,
+    competencies: {
+      type: [CompetencySchema],
       default: undefined,
     },
-    span: {
-      type: Number,
-      min: 1,
+    coordinator: {
+      type: Schema.ObjectId,
+      ref: 'User',
+      required: 'Coordinator cannot be blank.',
+    },
+    created: {
+      type: Date,
+      default: Date.now,
+    },
+    description: {
+      type: String,
+      trim: true,
+      required: 'Description cannot be blank.',
+    },
+    field: {
+      type: String,
+      trim: true,
+    },
+    groups: {
+      teaching: {
+        type: [TeachingGroupSchema],
+        default: undefined,
+      },
+      working: {
+        type: [WorkingGroupSchema],
+        default: undefined,
+      },
+    },
+    language: {
+      type: String,
+      trim: true,
     },
     load: {
       type: {
@@ -158,36 +186,10 @@ const CourseSchema = new Schema(
         min: 0,
       },
     },
-    field: {
+    name: {
       type: String,
       trim: true,
-    },
-    tags: {
-      type: [
-        {
-          type: String,
-          trim: true,
-        },
-      ],
-      default: undefined,
-    },
-    language: {
-      type: String,
-      trim: true,
-    },
-    teachers: {
-      type: [
-        {
-          type: Schema.ObjectId,
-          ref: 'User',
-        },
-      ],
-      default: undefined,
-    },
-    coordinator: {
-      type: Schema.ObjectId,
-      ref: 'User',
-      required: 'Coordinator cannot be blank.',
+      required: 'Name cannot be blank.',
     },
     partners: {
       type: [
@@ -198,55 +200,53 @@ const CourseSchema = new Schema(
       ],
       default: undefined,
     },
-    description: {
-      type: String,
-      trim: true,
-      required: 'Description cannot be blank.',
-    },
-    colophon: {
-      type: String,
-      trim: true,
-    },
-    competencies: {
-      type: [CompetencySchema],
-      default: undefined,
-    },
-    groups: {
-      teaching: {
-        type: [TeachingGroupSchema],
-        default: undefined,
-      },
-      working: {
-        type: [WorkingGroupSchema],
-        default: undefined,
-      },
-    },
     progressGuide: {
       type: [ProgressStepSchema],
       default: undefined,
+    },
+    published: {
+      type: Date,
+    },
+    schedule: {
+      type: ScheduleSchema,
+      default: undefined,
+    },
+    span: {
+      type: Number,
+      min: 1,
+    },
+    tags: {
+      type: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      default: undefined,
+    },
+    teachers: {
+      type: [
+        {
+          type: Schema.ObjectId,
+          ref: 'User',
+        },
+      ],
+      default: undefined,
+    },
+    type: {
+      type: String,
+      enum: ['project', 'training', 'ucourse', 'unit'],
+      default: 'unit',
+      required: 'Type cannot be blank.',
+    },
+    user: {
+      type: Schema.ObjectId,
+      ref: 'User',
     },
     visibility: {
       type: String,
       enum: ['public', 'invite-only', 'private'],
       default: 'public',
-    },
-    published: {
-      type: Date,
-    },
-    archived: {
-      type: Date,
-    },
-    clonedFrom: {
-      type: Schema.ObjectId,
-      ref: 'Course',
-    },
-    created: {
-      type: Date,
-      default: Date.now,
-    },
-    user: {
-      type: Schema.ObjectId,
-      ref: 'User',
     },
   },
   { usePushEach: true }
