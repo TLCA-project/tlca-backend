@@ -500,11 +500,11 @@ const resolvers = {
       if (args.teachers?.length === 0) {
         args.teachers = undefined
       }
-      if (args.teachingGroups?.length === 0) {
-        args.teachingGroups = undefined
+      if (args.groups?.teaching?.length === 0) {
+        args.groups.teaching = undefined
       }
-      if (args.workingGroups?.length === 0) {
-        args.workingGroups = undefined
+      if (args.groups?.working?.length === 0) {
+        args.groups.working = undefined
       }
 
       // Create the course Mongoose object.
@@ -517,16 +517,16 @@ const resolvers = {
       )
       course.coordinator = user.id
       course.groups = {}
-      if (args.teachingGroups) {
+      if (args.groups?.teaching) {
         course.groups.teaching = await Promise.all(
-          args.teachingGroups.map(async (g) => ({
+          args.groups.teaching.map(async (g) => ({
             ...g,
             supervisor: (await User.findOne({ username: g.supervisor }))?._id,
           }))
         )
       }
-      if (args.workingGroups) {
-        course.groups.working = args.workingGroups
+      if (args.groups.working) {
+        course.groups.working = args.groups.working
       }
       if (!course.groups.teaching && !course.groups.working) {
         course.groups = undefined
@@ -540,8 +540,7 @@ const resolvers = {
 
       // Save the course into the database.
       try {
-        await course.save()
-        return true
+        return await course.save()
       } catch (err) {
         const formErrors = {}
 
