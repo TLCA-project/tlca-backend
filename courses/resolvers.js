@@ -494,17 +494,30 @@ const resolvers = {
       return null
     },
     async createCourse(_parent, args, { models, user }, _info) {
-      const { Competency, Course, User } = models
+      const { Competency, Course, Partner, User } = models
 
       // Clean up the optional args.
-      if (args.teachers?.length === 0) {
-        args.teachers = undefined
+      for (const field of ['colophon', 'field', 'language', 'span']) {
+        if (!args[field]) {
+          delete args[field]
+        }
       }
-      if (args.groups?.teaching?.length === 0) {
-        args.groups.teaching = undefined
+      for (const field of ['partners', 'schedule', 'tags', 'teachers']) {
+        if (!args[field].length) {
+          delete args[field]
+        }
       }
-      if (args.groups?.working?.length === 0) {
-        args.groups.working = undefined
+      if (args.groups) {
+        for (const field of ['teaching', 'working']) {
+          if (!args.groups[field].length) {
+            delete args.groups[field]
+          }
+        }
+      }
+      for (const field of ['groups', 'load']) {
+        if (!Object.keys(args[field]).length) {
+          delete args[field]
+        }
       }
 
       // Create the course Mongoose object.
@@ -525,11 +538,25 @@ const resolvers = {
           }))
         )
       }
-      if (args.groups.working) {
+      if (args.groups?.working) {
         course.groups.working = args.groups.working
       }
       if (!course.groups.teaching && !course.groups.working) {
         course.groups = undefined
+      }
+      if (args.partners) {
+        course.partners = await Promise.all(
+          args.partners.map(async (p) => await Partner.findOne({ code: p }))
+        )
+      }
+      if (args.schedule?.length) {
+        course.schedule = args.schedule.reduce(
+          (schedule, event) => ({
+            ...schedule,
+            [event.name]: event.datetime,
+          }),
+          {}
+        )
       }
       if (args.teachers) {
         course.teachers = await Promise.all(

@@ -125,6 +125,14 @@ const typeDefs = gql`
     working: [CourseWorkingGroupInput!]
   }
 
+  input CourseLoadInput {
+    ects: Int
+    practice: Int
+    theory: Int
+    type: CourseLoadType
+    weekload: Int
+  }
+
   input CourseTeachingGroupInput {
     name: String
     supervisor: ID!
@@ -134,16 +142,29 @@ const typeDefs = gql`
     name: String
   }
 
+  input EventInput {
+    datetime: DateTime
+    name: String
+  }
+
   extend type Mutation {
     archiveCourse(archiveCode: String, code: ID!): Course
       @auth(requires: TEACHER)
     cloneCourse(cloneCode: String, code: ID!): Course @auth(requires: TEACHER)
     createCourse(
       code: String!
+      colophon: String
       competencies: [CourseCompetencyInput!]!
-      groups: CourseGroupInput
-      name: String!
       description: String
+      field: String
+      groups: CourseGroupInput
+      language: String
+      load: CourseLoadInput
+      name: String!
+      partners: [ID!]
+      schedule: [EventInput!]
+      span: Int
+      tags: [String!]
       teachers: [ID!]
       type: CourseType
       visibility: Visibility
