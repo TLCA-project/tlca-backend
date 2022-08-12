@@ -50,6 +50,7 @@ const typeDefs = gql`
       name: String!
       start: DateTime
     ): Assessment @auth(requires: TEACHER)
+    deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
   }
 `
 

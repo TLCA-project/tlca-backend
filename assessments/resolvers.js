@@ -139,6 +139,34 @@ const resolvers = {
 
       return null
     },
+    // Delete a new assessment.
+    async deleteAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment, Evaluation } = models
+
+      // Retrieve the assessment to delete.
+      const assessment = await Assessment.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
+      if (!assessment || !isCoordinator(assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Check if there are any evaluation associated to the assessment.
+      if (await Evaluation.exists({ assessment: assessment._id })) {
+        throw new UserInputError('EVALUATIONS_STILL_ASSOCIATED')
+      }
+
+      try {
+        assessment.delete()
+        return true
+      } catch (err) {
+        console.log(err)
+      }
+
+      return false
+    },
   },
 }
 
