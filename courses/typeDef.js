@@ -87,6 +87,7 @@ const typeDefs = gql`
     description: String!
     field: String
     groups: CourseGroup @auth(requires: TEACHER)
+    hasAdvancedCompetencies: Boolean
     hasRequestedInvitation: Boolean @auth
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
