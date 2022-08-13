@@ -83,13 +83,19 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
-    async groups(course, _args, { models }, _info) {
+    async groups(course, _args, { models, user }, _info) {
       const { Course } = models
 
       return {
         teaching: await Course.populate(course, [
           { path: 'groups.teaching.supervisor', model: 'User' },
-        ]).then((a) => a.groups?.teaching || []),
+        ]).then(
+          (a) =>
+            a.groups?.teaching.map((g) => ({
+              ...g,
+              isSupervisor: g.supervisor._id.toString() === user.id,
+            })) || []
+        ),
         working: course.groups?.working || [],
       }
     },

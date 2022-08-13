@@ -67,6 +67,7 @@ const typeDefs = gql`
   }
 
   type CourseTeachingGroup {
+    isSupervisor: Boolean
     name: String
     supervisor: User!
   }
