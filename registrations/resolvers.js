@@ -1,11 +1,70 @@
 import { UserInputError } from 'apollo-server'
 
-import { isCoordinator } from '../lib/courses.js'
+import { isCoordinator, isTeacher } from '../lib/courses.js'
+import { hasRole } from '../lib/users.js'
 
 const resolvers = {
   RegistrationInvitation: {
     REQUESTED: 'requested',
     SENT: 'sent',
+  },
+  Registration: {
+    // Retrieve the 'id' of this registration from the MongoDB '_id'.
+    id(registration, _args, _context, _info) {
+      return registration._id.toString()
+    },
+  },
+  Query: {
+    // Retrieve all the registrations
+    // that are available to the connected user.
+    async registrations(_parent, args, { models, user }, _info) {
+      const { Course, Registration } = models
+
+      const filter = {}
+
+      // Only 'admin' can access all the registrations
+      // without specifying a course code.
+      if (!args.courseCode && !hasRole(user, 'admin')) {
+        throw new UserInputError(
+          'The courseCode param is required for non-admin users.'
+        )
+      }
+
+      if (args.confirmed) {
+        filter.invitation = { $exists: false }
+      }
+
+      if (args.courseCode) {
+        const course = await Course.findOne(
+          { code: args.courseCode },
+          'coordinator groups teachers'
+        ).lean()
+
+        if (
+          !course ||
+          !(isCoordinator(course, user) || isTeacher(course, user))
+        ) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        // Filter the registrations according to the provided course code.
+        filter.course = course._id
+
+        // If teaching groups are defined, a teacher can only access
+        // to the learners from his/her teaching groups.
+        if (!isCoordinator(course, user) && course.groups?.teaching?.length) {
+          const groups = course.groups.teaching
+            .filter((g) => g.supervisor.toString() === user.id)
+            .map((_, i) => i)
+          filter.$or = [
+            { 'group.teaching': { $exists: false } },
+            { 'group.teaching': { $in: groups } },
+          ]
+        }
+      }
+
+      return await Registration.find(filter).populate('user').lean()
+    },
   },
   Mutation: {
     // Accept an invitation request made by a user/student for a given course.

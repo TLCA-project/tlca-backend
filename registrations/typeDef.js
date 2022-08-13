@@ -6,9 +6,9 @@ const typeDefs = gql`
     SENT
   }
 
-  type RegistrationGroup {
-    teaching: Int
-    working: Int
+  type Progress {
+    advanced: Int
+    basic: Int!
   }
 
   type Registration {
@@ -17,7 +17,22 @@ const typeDefs = gql`
     group: RegistrationGroup
     id: ID!
     invitation: RegistrationInvitation
+    progress: Progress
     user: User
+  }
+
+  type RegistrationGroup {
+    teaching: Int
+    working: Int
+  }
+
+  extend type Query {
+    registrations(
+      confirmed: Boolean
+      courseCode: ID
+      limit: Int
+      offset: Int
+    ): [Registration!] @auth(requires: [ADMIN, TEACHER])
   }
 
   extend type Mutation {

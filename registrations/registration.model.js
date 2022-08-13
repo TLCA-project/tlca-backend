@@ -35,12 +35,12 @@ const RegistrationSchema = new Schema({
     type: String,
     enum: ['requested', 'sent'],
   },
-  stars: {
-    basic: {
+  progress: {
+    advanced: {
       type: Number,
       default: 0,
     },
-    advanced: {
+    basic: {
       type: Number,
       default: 0,
     },
