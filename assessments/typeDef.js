@@ -27,6 +27,7 @@ const typeDefs = gql`
     id: ID!
     name: String!
     start: DateTime
+    workload: Int
   }
 
   extend type Query {
@@ -49,6 +50,7 @@ const typeDefs = gql`
       end: DateTime
       name: String!
       start: DateTime
+      workload: Int
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
   }

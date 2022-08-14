@@ -48,17 +48,15 @@ const resolvers = {
       const { Assessment, Competency, Course } = models
 
       // Clean up the optional args.
-      if (args.code?.trim().length === 0) {
-        args.code = undefined
+      for (const field of ['code', 'description']) {
+        if (!args[field]?.trim().length) {
+          delete args[field]
+        }
       }
-      if (args.description?.trim().length === 0) {
-        args.description = undefined
-      }
-      if (!args.end) {
-        args.end = undefined
-      }
-      if (!args.start) {
-        args.start = undefined
+      for (const field of ['end', 'start', 'workload']) {
+        if (!args[field]) {
+          delete args[field]
+        }
       }
 
       // Retrieve the course for which to create an assessment.

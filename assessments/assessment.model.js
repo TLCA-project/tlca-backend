@@ -77,6 +77,10 @@ const AssessmentSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'User',
   },
+  workload: {
+    type: Number,
+    min: 0,
+  },
 })
 
 AssessmentSchema.pre('validate', function (next) {
