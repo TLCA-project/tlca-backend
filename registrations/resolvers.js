@@ -54,8 +54,9 @@ const resolvers = {
         // to the learners from his/her teaching groups.
         if (!isCoordinator(course, user) && course.groups?.teaching?.length) {
           const groups = course.groups.teaching
+            .map((g, i) => ({ ...g, i }))
             .filter((g) => g.supervisor.toString() === user.id)
-            .map((_, i) => i)
+            .map((g) => g.i)
           filter.$or = [
             { 'group.teaching': { $exists: false } },
             { 'group.teaching': { $in: groups } },
