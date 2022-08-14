@@ -102,6 +102,12 @@ const resolvers = {
     hasAdvancedCompetencies(course, _args, _context, _info) {
       return course.competencies.some((c) => c.category === 'advanced')
     },
+    hasTeachingGroups(course, _args, _context, _info) {
+      return course.groups?.teaching?.length
+    },
+    hasWorkingGroups(course, _args, _context, _info) {
+      return course.groups?.working?.length
+    },
     async hasRequestedInvitation(course, _args, { models, user }, _info) {
       const { Registration } = models
 

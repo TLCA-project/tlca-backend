@@ -89,6 +89,8 @@ const typeDefs = gql`
     groups: CourseGroup @auth(requires: TEACHER)
     hasAdvancedCompetencies: Boolean
     hasRequestedInvitation: Boolean @auth
+    hasTeachingGroups: Boolean @auth(requires: TEACHER)
+    hasWorkingGroups: Boolean @auth(requires: TEACHER)
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
     isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
