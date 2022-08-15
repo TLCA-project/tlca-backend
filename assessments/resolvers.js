@@ -1,6 +1,7 @@
 import { UserInputError } from 'apollo-server'
 
-import { isCoordinator } from '../lib/courses.js'
+import { isCoordinator, isTeacher } from '../lib/courses.js'
+import { hasRole } from '../lib/users.js'
 
 const resolvers = {
   AssessmentCategory: {
@@ -40,6 +41,44 @@ const resolvers = {
       }
 
       return assessment
+    },
+    // Retrieve all the assessments
+    // that are available to the connected user.
+    async assessments(_parent, args, { models, user }, _info) {
+      const { Assessment, Course } = models
+
+      const filter = {}
+
+      // Only 'admin' can access all the assessments
+      // without specifying a course code.
+      if (!args.courseCode && !hasRole(user, 'admin')) {
+        throw new UserInputError(
+          'The courseCode param is required for non-admin users.'
+        )
+      }
+
+      if (args.open) {
+        filter.closed = { $exists: false }
+      }
+
+      if (args.courseCode) {
+        const course = await Course.findOne(
+          { code: args.courseCode },
+          'coordinator teachers'
+        ).lean()
+
+        if (
+          !course ||
+          !(isCoordinator(course, user) || isTeacher(course, user))
+        ) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        // Filter the assessments according to the provided course code.
+        filter.course = course._id
+      }
+
+      return await Assessment.find(filter).lean()
     },
   },
   Mutation: {

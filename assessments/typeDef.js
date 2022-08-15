@@ -32,6 +32,12 @@ const typeDefs = gql`
 
   extend type Query {
     assessment(id: ID!): Assessment @auth(requires: TEACHER)
+    assessments(
+      courseCode: ID
+      limit: Int
+      offset: Int
+      open: Boolean
+    ): [Assessment!] @auth(requires: [ADMIN, TEACHER])
   }
 
   input AssessmentCompetencyInput {
