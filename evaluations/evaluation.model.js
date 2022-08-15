@@ -8,6 +8,9 @@ const EvaluationSchema = new Schema({
     ref: 'Assessment',
     required: 'Assessment cannot be blank.',
   },
+  comment: {
+    type: String,
+  },
   competencies: {
     type: [
       {
@@ -33,9 +36,6 @@ const EvaluationSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'User',
     required: 'Evaluator cannot be blank.',
-  },
-  note: {
-    type: String,
   },
   user: {
     type: Schema.ObjectId,
