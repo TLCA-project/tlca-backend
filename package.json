@@ -1,8 +1,13 @@
 {
-  "name": "server",
+  "name": "tlca-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend server of the TLCA platform",
+  "repository": "https://github.com/TLCA-project/tlca-backend.git",
+  "author": "Sébastien Combéfis <sebastien@combefis.be>",
+  "license": "AGPL-3.0-only",
+  "private": false,
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "cross-env NODE_ENV=development node index.js",
     "test": "cross-env NODE_ENV=test mocha",
@@ -13,10 +18,6 @@
     "lintfix": "prettier --write --list-different . && yarn lint:js --fix",
     "prepare": "husky install"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@graphql-tools/schema": "^8.5.0",
     "apollo-server": "^3.10.0",
