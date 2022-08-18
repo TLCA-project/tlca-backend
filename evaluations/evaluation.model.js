@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 
 const { model, Schema } = mongoose
@@ -42,6 +43,15 @@ const EvaluationSchema = new Schema({
     ref: 'User',
     required: 'User cannot be blank.',
   },
+})
+
+EvaluationSchema.pre('validate', function (next) {
+  // The evaluation date cannot be in the future.
+  if (this.evalDate && DateTime.fromJSDate(this.evalDate) > DateTime.now()) {
+    this.invalidate('evalDate', 'FORBIDDEN_FUTURE_EVAL_DATE')
+  }
+
+  next()
 })
 
 export default model('Evaluation', EvaluationSchema)

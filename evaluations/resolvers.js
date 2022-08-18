@@ -1,6 +1,26 @@
 import { UserInputError } from 'apollo-server'
 
 const resolvers = {
+  Evaluation: {
+    // Retrieve the assessment that this evaluation is for.
+    async assessment(evaluation, _args, { models }, _info) {
+      const { Assessment } = models
+      return await Assessment.findOne({ _id: evaluation.assessment })
+    },
+    // Retrieve the date the evaluation was taken.
+    date(evaluation, _args, _context, _info) {
+      return evaluation.evalDate || evaluation.date
+    },
+    // Retrieve the 'id' of the evaluation from the MongoDB '_id'.
+    id(evaluation, _args, _context, _info) {
+      return evaluation._id.toString()
+    },
+    // Retrieve the learner who took this evaluation.
+    async learner(evaluation, _args, { models }, _info) {
+      const { User } = models
+      return await User.findOne({ _id: evaluation.user })
+    },
+  },
   Query: {
     // Retrieve all the evaluations
     // that are available to the connected user.
@@ -71,7 +91,15 @@ const resolvers = {
       try {
         return await evaluation.save()
       } catch (err) {
-        console.log(err)
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
       }
 
       return null
