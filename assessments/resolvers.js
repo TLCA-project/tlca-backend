@@ -92,10 +92,13 @@ const resolvers = {
           delete args[field]
         }
       }
-      for (const field of ['end', 'start', 'workload']) {
+      for (const field of ['end', 'start', 'hasOralDefense']) {
         if (!args[field]) {
           delete args[field]
         }
+      }
+      if (!Object.keys(args['load']).length) {
+        delete args['load']
       }
 
       // Retrieve the course for which to create an assessment.

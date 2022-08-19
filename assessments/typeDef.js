@@ -17,6 +17,12 @@ const typeDefs = gql`
     optional: Boolean
   }
 
+  type AssessmentLoad {
+    defense: Int
+    grading: Int
+    work: Int
+  }
+
   type Assessment {
     category: AssessmentCategory!
     code: String
@@ -24,10 +30,11 @@ const typeDefs = gql`
     course: Course!
     description: String!
     end: DateTime
+    hasOralDefense: Boolean
     id: ID!
+    load: AssessmentLoad
     name: String!
     start: DateTime
-    workload: Int
   }
 
   extend type Query {
@@ -46,6 +53,12 @@ const typeDefs = gql`
     optional: Boolean
   }
 
+  input AssessmentLoadInput {
+    defense: Int
+    grading: Int
+    work: Int
+  }
+
   extend type Mutation {
     createAssessment(
       category: AssessmentCategory!
@@ -54,9 +67,10 @@ const typeDefs = gql`
       course: ID!
       description: String!
       end: DateTime
+      hasOralDefense: Boolean
+      load: AssessmentLoadInput
       name: String!
       start: DateTime
-      workload: Int
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
   }

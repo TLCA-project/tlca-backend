@@ -65,6 +65,24 @@ const AssessmentSchema = new Schema({
   end: {
     type: Date,
   },
+  hasOralDefense: {
+    type: Boolean,
+    default: false,
+  },
+  load: {
+    defense: {
+      type: Number,
+      min: 0,
+    },
+    grading: {
+      type: Number,
+      min: 0,
+    },
+    work: {
+      type: Number,
+      min: 0,
+    },
+  },
   name: {
     type: String,
     trim: true,
@@ -76,10 +94,6 @@ const AssessmentSchema = new Schema({
   user: {
     type: Schema.ObjectId,
     ref: 'User',
-  },
-  workload: {
-    type: Number,
-    min: 0,
   },
 })
 
