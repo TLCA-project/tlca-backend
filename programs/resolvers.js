@@ -1,6 +1,8 @@
 import { UserInputError } from 'apollo-server'
 import mongoose from 'mongoose'
 
+import { isCoordinator } from '../lib/courses.js'
+
 const resolvers = {
   ProgramStatus: {
     ARCHIVED: 'archived',
@@ -22,14 +24,27 @@ const resolvers = {
     USER: 'user',
   },
   Program: {
-    // Retrieve the detailed information about the coordinator.
+    // Retrieve the detailed information about the coordinator of this program.
     async coordinator(program, _args, { models }, _info) {
       const { User } = models
       return await User.findOne({ _id: program.coordinator }).lean()
     },
+    // Retrieve the detailed information about the courses of this program.
+    async courses(program, _args, { models }, _info) {
+      const { Program } = models
+      return await Program.populate(program, {
+        path: 'courses.course',
+        model: 'Course',
+      }).then((p) => p.courses)
+    },
     // Retrieve whether this program is archived.
     isArchived(program, _args, _context, _info) {
       return !!program.archived
+    },
+    // Retrieve whether the connected user is the coordinator of this program.
+    isCoordinator(program, _args, { user }, _info) {
+      const coordinator = program.coordinator
+      return (coordinator?._id || coordinator)?.toString() === user.id
     },
     // Retrieve whether this program is or has been published.
     isPublished(program, _args, _context, _info) {
@@ -58,7 +73,7 @@ const resolvers = {
 
       return await Partner.find({ _id: { $in: partners } }).lean()
     },
-    // Retrieve the status of the program according to
+    // Retrieve the status of this program according to
     // it's publication and archive dates.
     status(program, _args, _content, _info) {
       if (!program.published) {
@@ -263,6 +278,49 @@ const resolvers = {
       }
 
       return false
+    },
+    async publishProgram(_parent, args, { models, user }, _info) {
+      const { Program } = models
+
+      const program = await Program.findOne({ code: args.code })
+      if (!program) {
+        throw new UserInputError('PROGRAM_NOT_FOUND')
+      }
+
+      // Can only publish a program that is not published yet
+      // and only the program coordinator can publish it.
+      if (
+        program.published ||
+        program.archived ||
+        !isCoordinator(program, user)
+      ) {
+        throw new UserInputError('PROGRAM_PUBLICATION_FAILED')
+      }
+
+      // Can only publish a program if all its courses are published.
+      const courses = await Program.populate(program, [
+        {
+          path: 'courses.course',
+          select: 'archived published',
+          model: 'Course',
+        },
+      ]).then((a) => a.courses)
+      if (courses.some(({ course: c }) => !c.published || c.archived)) {
+        throw new UserInputError('UNPUBLISHED_PROGRAM_COURSES')
+      }
+      // TODO: add the check regarding the schedule also, in this latter.
+
+      // Publish the program.
+      program.published = new Date()
+
+      try {
+        // Save the program into the database.
+        return await program.save()
+      } catch (err) {
+        console.log(err)
+      }
+
+      return null
     },
   },
 }

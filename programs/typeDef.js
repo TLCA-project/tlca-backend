@@ -25,11 +25,12 @@ const typeDefs = gql`
   }
 
   type ProgramCourse {
-    course: ID!
+    course: Course!
     optional: Boolean
   }
 
   type Program {
+    archived: DateTime @auth(requires: TEACHER)
     banner: String
     code: ID!
     coordinator: User!
@@ -44,6 +45,7 @@ const typeDefs = gql`
     language: String
     name: String!
     partners: [Partner!]
+    published: DateTime @auth(requires: TEACHER)
     registration: Registration @auth
     status: ProgramStatus @auth(requires: [ADMIN, TEACHER])
     tags: [String!]
@@ -70,6 +72,7 @@ const typeDefs = gql`
       type: ProgramType
       visibility: ProgramVisibility
     ): Program @auth(requires: TEACHER)
+    publishProgram(code: ID!): Program @auth(requires: TEACHER)
   }
 `
 
