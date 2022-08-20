@@ -8,6 +8,7 @@ const typeDefs = gql`
 
   type Evaluation {
     assessment: Assessment!
+    course: Course!
     date: DateTime!
     id: ID!
     isPublished: Boolean
@@ -34,6 +35,7 @@ const typeDefs = gql`
       evalDate: DateTime
       learner: ID!
     ): Evaluation @auth(requires: TEACHER)
+    publishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }
 `
 

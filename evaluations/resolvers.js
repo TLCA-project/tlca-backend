@@ -1,5 +1,7 @@
 import { UserInputError } from 'apollo-server'
 
+import { isCoordinator, isEvaluator } from '../lib/courses.js'
+
 const resolvers = {
   EvaluationStatus: {
     PUBLISHED: 'published',
@@ -10,6 +12,11 @@ const resolvers = {
     async assessment(evaluation, _args, { models }, _info) {
       const { Assessment } = models
       return await Assessment.findOne({ _id: evaluation.assessment })
+    },
+    // Retrieve the course that this evaluation is related to.
+    async course(evaluation, _args, { models }, _info) {
+      const { Course } = models
+      return await Course.findOne({ _id: evaluation.course })
     },
     // Retrieve the date the evaluation was taken.
     date(evaluation, _args, _context, _info) {
@@ -100,9 +107,9 @@ const resolvers = {
 
       // Retrieve the assessment for which to create an evaluation.
       const assessment = await Assessment.findOne(
-        { id: args.assessment },
+        { _id: args.assessment },
         '_id course'
-      )
+      ).lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
@@ -110,7 +117,7 @@ const resolvers = {
       // Create the evaluation Mongoose object.
       const evaluation = new Evaluation(args)
       evaluation.assessment = assessment._id
-      evaluation.course = assessment.course
+      evaluation.course = assessment.course._id
       evaluation.evaluator = user.id
       evaluation.user = learner._id
 
@@ -127,6 +134,42 @@ const resolvers = {
             )
             throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
+      }
+
+      return null
+    },
+    async publishEvaluation(_parent, args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      const evaluation = await Evaluation.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Can only publish an evaluation that is not published yet
+      // and only its evaluator or the associated course coordinator can publish it..
+      if (
+        evaluation.published ||
+        !(
+          isEvaluator(evaluation, user) ||
+          isCoordinator(evaluation.course, user)
+        )
+      ) {
+        throw new UserInputError('EVALUATION_PUBLICATION_FAILED')
+      }
+
+      // Publish the evaluation.
+      evaluation.published = new Date()
+
+      try {
+        // Save the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        console.log(err)
       }
 
       return null
