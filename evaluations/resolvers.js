@@ -1,6 +1,10 @@
 import { UserInputError } from 'apollo-server'
 
 const resolvers = {
+  EvaluationStatus: {
+    PUBLISHED: 'published',
+    UNPUBLISHED: 'unpublished',
+  },
   Evaluation: {
     // Retrieve the assessment that this evaluation is for.
     async assessment(evaluation, _args, { models }, _info) {
@@ -15,13 +19,36 @@ const resolvers = {
     id(evaluation, _args, _context, _info) {
       return evaluation._id.toString()
     },
+    // Retrieve whether this evaluation is published or not.
+    isPublished(evaluation, _args, _context, _info) {
+      return !!evaluation.published
+    },
     // Retrieve the learner who took this evaluation.
     async learner(evaluation, _args, { models }, _info) {
       const { User } = models
       return await User.findOne({ _id: evaluation.user })
     },
+    // Retrieve the status of this evaluation
+    // according to it's publication date.
+    status(evaluation, _args, _content, _info) {
+      if (evaluation.published) {
+        return 'published'
+      }
+      return 'unpublished'
+    },
   },
   Query: {
+    // Retrieve one given evaluation given its 'id'.
+    async evaluation(_parent, args, { models }, _info) {
+      const { Evaluation } = models
+
+      const evaluation = await Evaluation.findOne({ _id: args.id }).lean()
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      return evaluation
+    },
     // Retrieve all the evaluations
     // that are available to the connected user.
     async evaluations(_parent, args, { models }, _info) {

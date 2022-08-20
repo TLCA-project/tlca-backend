@@ -1,14 +1,23 @@
 import { gql } from 'apollo-server'
 
 const typeDefs = gql`
+  enum EvaluationStatus {
+    PUBLISHED
+    UNPUBLISHED
+  }
+
   type Evaluation {
     assessment: Assessment!
     date: DateTime!
     id: ID!
+    isPublished: Boolean
     learner: User!
+    published: DateTime
+    status: EvaluationStatus @auth(requires: TEACHER)
   }
 
   extend type Query {
+    evaluation(id: ID!): Evaluation @auth(requires: TEACHER)
     evaluations(
       assessment: ID
       courseCode: ID

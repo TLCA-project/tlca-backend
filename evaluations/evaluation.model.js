@@ -38,6 +38,9 @@ const EvaluationSchema = new Schema({
     ref: 'User',
     required: 'Evaluator cannot be blank.',
   },
+  published: {
+    type: Date,
+  },
   user: {
     type: Schema.ObjectId,
     ref: 'User',
