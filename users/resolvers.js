@@ -48,10 +48,6 @@ const resolvers = {
     async signIn(_parent, args, { env, models }, _info) {
       const { User } = models
 
-      if (!args.usernameOrEmail || !args.password) {
-        throw new UserInputError('MISSING_FIELDS')
-      }
-
       // Find a user either with a given email address or with a given username
       const user = await User.findOne(
         {
@@ -64,8 +60,11 @@ const resolvers = {
       )
 
       if (user && user.authenticate(args.password)) {
+        const userinfo = { id: user._id, roles: user.roles }
+        const token = jwt.sign(userinfo, env.JWT_ACCESS_TOKEN_SECRET)
+
         return {
-          token: jwt.sign({ id: user._id, roles: user.roles }, env.JWT_SECRET),
+          token,
         }
       }
 
