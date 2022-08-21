@@ -15,6 +15,6 @@ services:
     volumes:
       - db-data:/data/db
     expose:
-      - 27017
+      - 27017:27017
 volumes:
   db-data:
