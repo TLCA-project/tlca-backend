@@ -42,6 +42,9 @@ const AssessmentSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'Assessment',
   },
+  closed: {
+    type: Boolean,
+  },
   code: {
     type: String,
   },
@@ -68,6 +71,9 @@ const AssessmentSchema = new Schema({
   hasOralDefense: {
     type: Boolean,
     default: false,
+  },
+  hidden: {
+    type: Boolean,
   },
   load: {
     defense: {

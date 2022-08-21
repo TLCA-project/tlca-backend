@@ -29,6 +29,14 @@ const resolvers = {
     id(assessment, _args, _context, _info) {
       return assessment._id.toString()
     },
+    // Retrieve whether this assessment is closed or not.
+    isClosed(assessment, _args, _context, _info) {
+      return !!assessment.closed
+    },
+    // Retrieve whether this assessment is hidden or not.
+    isHidden(assessment, _args, _context, _info) {
+      return !!assessment.hidden
+    },
   },
   Query: {
     // Retrieve one given assessment given its 'id'.
@@ -206,6 +214,64 @@ const resolvers = {
       }
 
       return false
+    },
+    // Open or close this assessment depending on its openness.
+    async openCloseAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment } = models
+
+      // Retrieve the assessment to update.
+      const assessment = await Assessment.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
+      if (!assessment || !isCoordinator(assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Switch the openness of this assessment.
+      assessment.closed = !assessment.closed
+      if (!assessment.closed) {
+        delete assessment.closed
+      }
+
+      try {
+        // Update the assessment into the database.
+        return await assessment.save()
+      } catch (err) {
+        console.log(err)
+      }
+
+      return null
+    },
+    // Show or hide this assessment depending on its visibility.
+    async showHideAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment } = models
+
+      // Retrieve the assessment to update.
+      const assessment = await Assessment.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
+      if (!assessment || !isCoordinator(assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Switch the visibility of this assessment.
+      assessment.hidden = !assessment.hidden
+      if (!assessment.hidden) {
+        delete assessment.hidden
+      }
+
+      try {
+        // Update the assessment into the database.
+        return await assessment.save()
+      } catch (err) {
+        console.log(err)
+      }
+
+      return null
     },
   },
 }

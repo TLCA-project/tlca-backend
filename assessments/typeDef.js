@@ -32,6 +32,8 @@ const typeDefs = gql`
     end: DateTime
     hasOralDefense: Boolean
     id: ID!
+    isClosed: Boolean
+    isHidden: Boolean
     load: AssessmentLoad
     name: String!
     start: DateTime
@@ -73,6 +75,8 @@ const typeDefs = gql`
       start: DateTime
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
+    openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
+    showHideAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
   }
 `
 
