@@ -352,10 +352,10 @@ const resolvers = {
         },
         {
           path: 'coordinator',
-          select: '_id displayName username',
+          select: '_id username',
           model: 'User',
         },
-        { path: 'teachers', select: '_id displayName username', model: 'User' },
+        { path: 'teachers', select: '_id username', model: 'User' },
       ]).then((c) => c.toJSON())
 
       // Rename the 'id' field of the coordinator and teachers

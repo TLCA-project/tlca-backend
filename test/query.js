@@ -62,7 +62,7 @@ describe('Test Course queries', () => {
       if (token) {
         try {
           token = token.split(' ')[1]
-          return jwt.verify(token, process.env.JWT_SECRET)
+          return jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET)
         } catch (err) {
           return null
         }

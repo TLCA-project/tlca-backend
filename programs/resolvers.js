@@ -214,7 +214,7 @@ const resolvers = {
       program = await Program.populate(program, [
         {
           path: 'coordinator',
-          select: '_id displayName username',
+          select: '_id username',
           model: 'User',
         },
       ]).then((c) => c.toJSON())

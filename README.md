@@ -20,6 +20,7 @@ Once successfully installed, create a local untracked file in the root folder na
 
     > MONGODB_URI=mongodb://localhost:27017/tlca-dev
     > JWT_ACCESS_TOKEN_SECRET=MY_SECRET_STORY
+    > JWT_REFRESH_TOKEN_SECRET=ANOTHER_SECRET
 
 You must of course refer to your own local configuration for the MongoDB server and you can customise the name of the database and the secret JWT key to be used. Then, you can run the backend server locally in development mode:
 

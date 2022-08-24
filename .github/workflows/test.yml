@@ -22,7 +22,8 @@ jobs:
         shell: bash
         run: |
           echo "MONGODB_URI=mongodb://localhost:27017/tlca-test" > .env.test
-          echo "JWT_SECRET=SUPER_SECRET_STORY" >> .env.test
+          echo "JWT_ACCESS_TOKEN_SECRET=MY_SECRET_STORY" >> .env.test
+          echo "JWT_REFRESH_TOKEN_SECRET=ANOTHER_SECRET" >> .env.test
 
       - name: Run MongoDB
         uses: DigiPie/mongo-action@v1.0.1

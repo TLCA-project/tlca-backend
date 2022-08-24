@@ -2,6 +2,7 @@ import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   type SignInResponse {
+    refreshToken: String!
     token: String!
   }
 
@@ -23,6 +24,7 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    refreshToken(token: String!): SignInResponse!
     signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
     signUp(email: String!, password: String!): Boolean
