@@ -7,6 +7,12 @@ const resolvers = {
     REQUESTED: 'requested',
     SENT: 'sent',
   },
+  Registration: {
+    // Retrieve the 'datetime' of this registration from the MongoDB 'date'.
+    datetime(registration, _args, _context, _info) {
+      return registration.date
+    },
+  },
   Mutation: {
     // Accept an invitation request made by a user/student for a given course.
     async acceptInvitationRequest(_parent, args, { models, user }, _info) {
