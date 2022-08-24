@@ -1,3 +1,9 @@
+## 1.0.2 (2022-08-24)
+
+### Bug Fixes
+
+- **registrations:** add resolver to correctly retrieve the 'datetime' field of the registration
+
 ## 1.0.1 (2022-08-12)
 
 ### Bug Fixes
