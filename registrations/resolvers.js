@@ -9,6 +9,10 @@ const resolvers = {
     SENT: 'sent',
   },
   Registration: {
+    // Retrieve the 'datetime' of this registration from the MongoDB 'date'.
+    datetime(registration, _args, _context, _info) {
+      return registration.date
+    },
     // Retrieve the 'id' of this registration from the MongoDB '_id'.
     id(registration, _args, _context, _info) {
       return registration._id.toString()
