@@ -15,7 +15,6 @@ const RegistrationSchema = new Schema({
   },
   date: {
     type: Date,
-    default: Date.now,
   },
   email: {
     type: String,
@@ -34,6 +33,9 @@ const RegistrationSchema = new Schema({
   invitation: {
     type: String,
     enum: ['requested', 'sent'],
+  },
+  invitationDate: {
+    type: Date,
   },
   progress: {
     advanced: {

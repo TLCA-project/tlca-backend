@@ -174,8 +174,6 @@ const typeDefs = gql`
       visibility: Visibility
     ): Course @auth(requires: TEACHER)
     publishCourse(code: ID!): Course @auth(requires: TEACHER)
-    register(code: ID!): Course @auth(requires: STUDENT)
-    requestInvitation(code: ID!): Course @auth
   }
 `
 

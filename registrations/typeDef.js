@@ -36,8 +36,13 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    acceptInvitation(id: ID!): Registration @auth
     acceptInvitationRequest(id: ID!): Registration @auth(requires: TEACHER)
-    removeGroup(id: ID!, group: Int!, type: GroupType!): Registration
+    register(courseCode: ID!): Registration @auth(requires: STUDENT)
+    removeGroup(id: ID!, type: GroupType!): Registration
+      @auth(requires: TEACHER)
+    requestInvitation(courseCode: ID!): Registration @auth
+    sendInvitation(courseCode: ID!, email: String!): Registration
       @auth(requires: TEACHER)
     updateGroup(id: ID!, group: Int!, type: GroupType!): Registration
       @auth(requires: TEACHER)
