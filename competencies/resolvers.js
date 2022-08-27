@@ -86,17 +86,16 @@ const resolvers = {
       const { Competency, Partner } = models
 
       // Clean up the optional args.
+      for (const field of ['learningOutcomes', 'partners', 'tags']) {
+        if (!args[field]?.length) {
+          delete args[field]
+        }
+      }
       if (args.description?.trim().length === 0) {
         args.description = undefined
       }
-      if (args.partners?.length === 0) {
-        args.partners = undefined
-      }
       if (!args.public) {
         args.public = undefined
-      }
-      if (args.tags?.length === 0) {
-        args.tags = undefined
       }
 
       // Create the competency Mongoose object.
@@ -114,19 +113,25 @@ const resolvers = {
       try {
         return await competency.save()
       } catch (err) {
+        const formErrors = {}
+
         switch (err.name) {
-          case 'MongoServerError': {
+          case 'MongoServerError':
             switch (err.code) {
-              case 11000: {
+              case 11000:
                 throw new UserInputError('EXISTING_CODE', {
                   formErrors: {
                     code: 'The specified code already exists',
                   },
                 })
-              }
             }
             break
-          }
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
 
         return false

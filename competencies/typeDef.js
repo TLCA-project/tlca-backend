@@ -12,6 +12,7 @@ const typeDefs = gql`
     description: String
     isOwner: Boolean @auth
     isPublic: Boolean
+    learningOutcomes: [String!]
     name: String!
     partners: [Partner!]
     tags: [String!]
@@ -28,6 +29,7 @@ const typeDefs = gql`
     createCompetency(
       code: String!
       description: String
+      learningOutcomes: [String!]
       name: String!
       partners: [ID!]
       public: Boolean
