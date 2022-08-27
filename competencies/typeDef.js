@@ -36,6 +36,16 @@ const typeDefs = gql`
       tags: [String!]
       type: CompetencyType
     ): Competency @auth(requires: TEACHER)
+    editCompetency(
+      code: ID!
+      description: String
+      learningOutcomes: [String!]
+      name: String!
+      partners: [ID!]
+      public: Boolean
+      tags: [String!]
+      type: CompetencyType
+    ): Competency @auth(requires: TEACHER)
   }
 `
 
