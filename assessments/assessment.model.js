@@ -70,7 +70,6 @@ const AssessmentSchema = new Schema({
   },
   hasOralDefense: {
     type: Boolean,
-    default: false,
   },
   hidden: {
     type: Boolean,

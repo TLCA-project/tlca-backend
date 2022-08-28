@@ -32,8 +32,8 @@ const typeDefs = gql`
     end: DateTime
     hasOralDefense: Boolean
     id: ID!
-    isClosed: Boolean
-    isHidden: Boolean
+    isClosed: Boolean @auth(requires: TEACHER)
+    isHidden: Boolean @auth(requires: TEACHER)
     load: AssessmentLoad
     name: String!
     start: DateTime
@@ -46,7 +46,7 @@ const typeDefs = gql`
       limit: Int
       offset: Int
       open: Boolean
-    ): [Assessment!] @auth(requires: [ADMIN, TEACHER])
+    ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
   }
 
   input AssessmentCompetencyInput {

@@ -53,37 +53,51 @@ const resolvers = {
     // Retrieve all the assessments
     // that are available to the connected user.
     async assessments(_parent, args, { models, user }, _info) {
-      const { Assessment, Course } = models
-
-      const filter = {}
+      const { Assessment, Course, Registration } = models
 
       // Only 'admin' can access all the assessments
       // without specifying a course code.
       if (!args.courseCode && !hasRole(user, 'admin')) {
-        throw new UserInputError(
-          'The courseCode param is required for non-admin users.'
-        )
+        throw new UserInputError('COURSE_CODE_REQUIRED')
       }
 
-      if (args.open) {
-        filter.closed = { $exists: false }
-      }
+      const filter = {}
 
+      // Filter the assessments to only keep those associated to the specified course.
       if (args.courseCode) {
         const course = await Course.findOne(
           { code: args.courseCode },
-          'coordinator teachers'
+          '_id coordinator teachers'
         ).lean()
+        if (!course) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
 
+        filter.course = course._id
+
+        const isRegistered = await Registration.exists({
+          course: course._id,
+          invitation: { $exists: false },
+          user: user.id,
+        })
         if (
-          !course ||
-          !(isCoordinator(course, user) || isTeacher(course, user))
+          !(
+            (hasRole(user, 'teacher') &&
+              (isCoordinator(course, user) || isTeacher(course, user))) ||
+            (hasRole(user, 'student') && isRegistered)
+          )
         ) {
           throw new UserInputError('COURSE_NOT_FOUND')
         }
 
-        // Filter the assessments according to the provided course code.
-        filter.course = course._id
+        if (isRegistered) {
+          filter.hidden = { $ne: true }
+        }
+      }
+
+      // Filter the assessements to only keep the open ones.
+      if (args.open) {
+        filter.closed = { $ne: true }
       }
 
       return await Assessment.find(filter).lean()
