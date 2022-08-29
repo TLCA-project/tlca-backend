@@ -1,5 +1,14 @@
 import { UserInputError } from 'apollo-server'
 
+// Clean up the optional args related to a competency.
+function clean(args) {
+  for (const field of ['abbreviation', 'website']) {
+    if (!args[field]?.trim().length) {
+      delete args[field]
+    }
+  }
+}
+
 const resolvers = {
   Partner: {
     async courses(partner, _args, { models: { Course } }, _info) {
@@ -51,6 +60,48 @@ const resolvers = {
       }
 
       return partner
+    },
+  },
+  Mutation: {
+    // Create a new partner from the specified parameters.
+    async createPartner(_parent, args, { models, user }, _info) {
+      const { Partner } = models
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Create the partner mongoose object.
+      const partner = new Partner(args)
+      partner.representative = user.id
+      partner.user = user.id
+
+      // Save the partner into the database.
+      try {
+        return await partner.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
+
+        return false
+      }
     },
   },
 }

@@ -17,6 +17,16 @@ const typeDefs = gql`
     partner(code: ID!): Partner
     partners(limit: Int): [Partner!]!
   }
+
+  extend type Mutation {
+    createPartner(
+      abbreviation: String
+      code: ID!
+      description: String
+      name: String!
+      website: String
+    ): Partner @auth(requires: MANAGER)
+  }
 `
 
 export default typeDefs

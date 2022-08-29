@@ -15,7 +15,7 @@ const PartnerSchema = new Schema({
   code: {
     type: String,
     trim: true,
-    required: 'Code cannot be blank.',
+    required: true,
     unique: true,
   },
   created: {
@@ -24,7 +24,7 @@ const PartnerSchema = new Schema({
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.',
+    required: true,
   },
   logo: {
     type: String,
@@ -33,12 +33,12 @@ const PartnerSchema = new Schema({
   name: {
     type: String,
     trim: true,
-    required: 'Name cannot be blank.',
+    required: true,
   },
   representative: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: 'Representative cannot be blank.',
+    required: true,
   },
   user: {
     type: Schema.ObjectId,
