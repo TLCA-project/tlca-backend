@@ -25,6 +25,11 @@ const EventSchema = new Schema({
   },
   title: {
     type: String,
+    required: true,
+  },
+  type: {
+    type: String,
+    enum: ['assessment'],
   },
   user: {
     type: Schema.ObjectId,

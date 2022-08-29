@@ -22,13 +22,6 @@ const resolvers = {
 
       const filter = {}
 
-      filter.user = user.id
-
-      // Only 'admin' can access all the events
-      if (hasRole(user, 'admin')) {
-        delete filter.user
-      }
-
       // Filter the events to only keep those associated to the specified course.
       if (args.courseCode) {
         const course = await Course.exists({ code: args.courseCode })
@@ -37,6 +30,13 @@ const resolvers = {
         }
 
         filter.course = course._id
+      } else {
+        filter.user = user.id
+
+        // Only 'admin' can access all the events
+        if (hasRole(user, 'admin')) {
+          delete filter.user
+        }
       }
 
       return await Event.find(filter).lean()

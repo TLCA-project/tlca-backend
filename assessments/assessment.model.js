@@ -8,6 +8,7 @@ const CompetencySchema = new Schema(
     competency: {
       type: Schema.ObjectId,
       ref: 'Competency',
+      required: true,
     },
     optional: {
       type: Boolean,
@@ -16,6 +17,7 @@ const CompetencySchema = new Schema(
       type: Number,
       min: 1,
       max: 3,
+      required: true,
     },
   },
   {
@@ -36,7 +38,7 @@ const AssessmentSchema = new Schema({
       'project',
       'quiz',
     ],
-    required: 'Category cannot be blank.',
+    required: true,
   },
   clonedFrom: {
     type: Schema.ObjectId,
@@ -55,7 +57,7 @@ const AssessmentSchema = new Schema({
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.',
+    required: true,
   },
   created: {
     type: Date,
@@ -63,10 +65,14 @@ const AssessmentSchema = new Schema({
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.',
+    required: true,
   },
   end: {
     type: Date,
+  },
+  event: {
+    type: Schema.ObjectId,
+    ref: 'Event',
   },
   hasOralDefense: {
     type: Boolean,
@@ -91,7 +97,7 @@ const AssessmentSchema = new Schema({
   name: {
     type: String,
     trim: true,
-    required: 'Name cannot be blank.',
+    required: true,
   },
   start: {
     type: Date,

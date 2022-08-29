@@ -67,6 +67,7 @@ const typeDefs = gql`
       code: String
       competencies: [AssessmentCompetencyInput!]!
       course: ID!
+      createEvent: Boolean
       description: String!
       end: DateTime
       hasOralDefense: Boolean

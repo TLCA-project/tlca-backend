@@ -1,4 +1,5 @@
 import { UserInputError } from 'apollo-server'
+import { DateTime } from 'luxon'
 
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
@@ -106,7 +107,7 @@ const resolvers = {
   Mutation: {
     // Create a new assessment from the specified parameters.
     async createAssessment(_parent, args, { models, user }, _info) {
-      const { Assessment, Competency, Course } = models
+      const { Assessment, Competency, Course, Event } = models
 
       // Clean up the optional args.
       for (const field of ['code', 'description']) {
@@ -173,6 +174,27 @@ const resolvers = {
       assessment.course = course._id
       assessment.user = user.id
 
+      // Create a new event for this assessment, if asked for.
+      if (args.createEvent) {
+        if (
+          !args.start ||
+          !args.end ||
+          !(DateTime.fromISO(args.start) < DateTime.fromISO(args.end))
+        ) {
+          throw new UserInputError('INVALID_EVENT_DATES')
+        }
+
+        const event = new Event({
+          course: course._id,
+          end: args.end,
+          start: args.start,
+          title: args.name,
+          type: 'assessment',
+        })
+        await event.save()
+        assessment.event = event._id
+      }
+
       // Save the assessment into the database.
       try {
         return await assessment.save()
@@ -203,7 +225,7 @@ const resolvers = {
     },
     // Delete a new assessment.
     async deleteAssessment(_parent, args, { models, user }, _info) {
-      const { Assessment, Evaluation } = models
+      const { Assessment, Evaluation, Event } = models
 
       // Retrieve the assessment to delete.
       const assessment = await Assessment.findOne({ _id: args.id }).populate({
@@ -221,7 +243,16 @@ const resolvers = {
       }
 
       try {
-        assessment.delete()
+        // Check if there is an event associated to the assessment
+        // and delete it, if any.
+        if (assessment.event) {
+          const event = await Event.findOne({ _id: assessment.event })
+          if (event) {
+            await event.delete()
+          }
+        }
+
+        await assessment.delete()
         return true
       } catch (err) {
         console.log(err)
