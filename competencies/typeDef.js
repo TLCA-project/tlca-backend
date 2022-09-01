@@ -10,6 +10,7 @@ const typeDefs = gql`
     code: ID!
     created: DateTime! @auth(requires: ADMIN)
     description: String
+    hasLearningOutcomes: Boolean
     isOwner: Boolean @auth
     isPublic: Boolean
     learningOutcomes: [String!]

@@ -51,6 +51,7 @@ const typeDefs = gql`
     category: CompetencyCategory!
     competency: Competency!
     subcategory: String
+    useLearningOutcomes: Boolean
   }
 
   type CourseGroup {
@@ -122,6 +123,7 @@ const typeDefs = gql`
     competency: ID!
     category: CompetencyCategory!
     subcategory: String
+    useLearningOutcomes: Boolean
   }
 
   input CourseGroupInput {

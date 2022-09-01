@@ -17,6 +17,9 @@ const CompetencySchema = new Schema(
       type: String,
       trim: true,
     },
+    useLearningOutcomes: {
+      type: Boolean,
+    },
   },
   {
     id: false,

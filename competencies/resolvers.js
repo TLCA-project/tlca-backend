@@ -22,6 +22,10 @@ const resolvers = {
     THEORETICAL: 'theoretical',
   },
   Competency: {
+    // Retrieve whether this competency has learning outcomes.
+    hasLearningOutcomes(competency, _args, _context, _info) {
+      return competency.learningOutcomes?.length
+    },
     // Retrieve whether this competency has been created by the connected user.
     isOwner(competency, _args, { user }, _info) {
       const creator = competency.user
