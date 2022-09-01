@@ -10,6 +10,10 @@ function clean(args) {
 }
 
 const resolvers = {
+  PartnerView: {
+    MANAGER: 'manager',
+    USER: 'user',
+  },
   Partner: {
     async courses(partner, _args, { models: { Course } }, _info) {
       const pipeline = []
@@ -37,17 +41,29 @@ const resolvers = {
 
       return await Course.aggregate(pipeline)
     },
+    isManager(partner, _args, { user }, _info) {
+      const manager = partner.user
+      return (manager?._id || manager)?.toString() === user.id
+    },
   },
   Query: {
-    async partners(_parent, args, { models }, _info) {
+    async partners(_parent, args, { models, user }, _info) {
       const { Partner } = models
+
+      const filter = {}
+
+      // If a user is connected,
+      // adjust the filter according to his/her roles.
+      if (user && args.view === 'manager') {
+        filter.user = user.id
+      }
 
       // Set up offset and limit.
       const skip = Math.max(0, args.offset ?? 0)
       const limit = args.limit ?? undefined
 
-      // Retrieve all the courses satisfying the conditions defined hereabove.
-      const partners = await Partner.find({}, null, { skip, limit })
+      // Retrieve all the partners satisfying the conditions defined hereabove.
+      const partners = await Partner.find(filter, null, { skip, limit })
 
       return partners
     },

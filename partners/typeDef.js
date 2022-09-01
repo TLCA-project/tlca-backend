@@ -1,12 +1,18 @@
 import { gql } from 'apollo-server'
 
 const typeDefs = gql`
+  enum PartnerView {
+    MANAGER
+    USER
+  }
+
   type Partner {
     abbreviation: String
     banner: String
     code: ID!
     courses: [Course!]
     description: String!
+    isManager: Boolean
     logo: String
     name: String!
     representative: User!
@@ -15,7 +21,7 @@ const typeDefs = gql`
 
   extend type Query {
     partner(code: ID!): Partner
-    partners(limit: Int): [Partner!]!
+    partners(offset: Int, limit: Int, view: PartnerView): [Partner!]!
   }
 
   extend type Mutation {
