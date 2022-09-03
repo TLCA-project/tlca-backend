@@ -14,6 +14,11 @@ const resolvers = {
     PROJECT: 'project',
     QUIZ: 'quiz',
   },
+  AssessmentType: {
+    INCREMENTAL: 'incremental',
+    PHASED: 'phased',
+    SINGLE_TAKE: 'single_take',
+  },
   Assessment: {
     // Retrieve the detailed information about the competencies.
     async competencies(assessment, _args, { models }, _info) {
@@ -37,6 +42,16 @@ const resolvers = {
     // Retrieve whether this assessment is hidden or not.
     isHidden(assessment, _args, _context, _info) {
       return !!assessment.hidden
+    },
+    // Retrieve the type of this assessment.
+    type(assessment, _args, _content, _info) {
+      if (assessment.incremental) {
+        return 'incremental'
+      }
+      if (assessment.phased) {
+        return 'phased'
+      }
+      return 'single_take'
     },
   },
   Query: {

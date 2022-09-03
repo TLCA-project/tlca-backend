@@ -10,6 +10,11 @@ const typeDefs = gql`
     PROJECT
     QUIZ
   }
+  enum AssessmentType {
+    INCREMENTAL
+    PHASED
+    SINGLE_TAKE
+  }
 
   type AssessmentCompetency {
     competency: Competency!
@@ -39,6 +44,7 @@ const typeDefs = gql`
     load: AssessmentLoad
     name: String!
     start: DateTime
+    type: AssessmentType
   }
 
   extend type Query {
