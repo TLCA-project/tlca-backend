@@ -18,8 +18,8 @@ const typeDefs = gql`
 
   type AssessmentCompetency {
     competency: Competency!
+    isOptional: Boolean
     stars: Int!
-    optional: Boolean
   }
 
   type AssessmentLoad {
@@ -78,6 +78,21 @@ const typeDefs = gql`
       createEvent: Boolean
       description: String!
       end: DateTime
+      incremental: Boolean
+      instances: Int
+      load: AssessmentLoadInput
+      name: String!
+      oralDefense: Boolean
+      start: DateTime
+    ): Assessment @auth(requires: TEACHER)
+    editAssessment(
+      category: AssessmentCategory!
+      code: String
+      competencies: [AssessmentCompetencyInput!]!
+      createEvent: Boolean
+      description: String!
+      end: DateTime
+      id: ID!
       incremental: Boolean
       instances: Int
       load: AssessmentLoadInput

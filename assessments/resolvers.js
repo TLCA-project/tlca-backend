@@ -4,6 +4,29 @@ import { DateTime } from 'luxon'
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
 
+// Clean up the optional args related to an assessment.
+function clean(args) {
+  for (const field of ['code', 'description']) {
+    if (!args[field]?.trim().length) {
+      delete args[field]
+    }
+  }
+  for (const field of [
+    'end',
+    'incremental',
+    'instances',
+    'oralDefense',
+    'start',
+  ]) {
+    if (!args[field]) {
+      delete args[field]
+    }
+  }
+  if (!Object.keys(args['load']).length) {
+    delete args['load']
+  }
+}
+
 const resolvers = {
   AssessmentCategory: {
     CASESTUDY: 'casestudy',
@@ -29,7 +52,13 @@ const resolvers = {
           path: 'competencies.competency',
           model: 'Competency',
         },
-      ]).then((a) => a.competencies)
+      ]).then((a) =>
+        a.competencies.map((c) => ({ ...c, isOptional: c.optional }))
+      )
+    },
+    // Retrieve whether this assessment has an oral defense or not.
+    hasOralDefense(assessment, _args, _context, _info) {
+      return !!assessment.oralDefense
     },
     // Retrieve the 'id' of the assessment from the MongoDB '_id'.
     id(assessment, _args, _context, _info) {
@@ -42,6 +71,10 @@ const resolvers = {
     // Retrieve whether this assessment is hidden or not.
     isHidden(assessment, _args, _context, _info) {
       return !!assessment.hidden
+    },
+    // Retrieve whether this assessment is incremental or not.
+    isIncremental(assessment, _args, _context, _info) {
+      return !!assessment.incremental
     },
     // Retrieve the type of this assessment.
     type(assessment, _args, _content, _info) {
@@ -125,25 +158,7 @@ const resolvers = {
       const { Assessment, Competency, Course, Event } = models
 
       // Clean up the optional args.
-      for (const field of ['code', 'description']) {
-        if (!args[field]?.trim().length) {
-          delete args[field]
-        }
-      }
-      for (const field of [
-        'end',
-        'incremental',
-        'instances',
-        'oralDefense',
-        'start',
-      ]) {
-        if (!args[field]) {
-          delete args[field]
-        }
-      }
-      if (!Object.keys(args['load']).length) {
-        delete args['load']
-      }
+      clean(args)
 
       // Retrieve the course for which to create an assessment.
       const course = await Course.findOne({ code: args.course })
@@ -189,7 +204,7 @@ const resolvers = {
       assessment.competencies = await Promise.all(
         args.competencies.map(async (c) => ({
           ...c,
-          competency: (await Competency.findOne({ code: c.competency }))?._id,
+          competency: (await Competency.exists({ code: c.competency }))?._id,
         }))
       )
       assessment.course = course._id
@@ -215,6 +230,106 @@ const resolvers = {
         await event.save()
         assessment.event = event._id
       }
+
+      // Save the assessment into the database.
+      try {
+        return await assessment.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
+      }
+
+      return null
+    },
+    // Edit an existing assessment from the specified parameters.
+    async editAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment, Competency } = models
+
+      // Retrieve the assessment to edit.
+      const assessment = await Assessment.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: '_id competencies coordinator',
+        model: 'Course',
+      })
+      if (!assessment || !isCoordinator(assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Code must be unique among assessments from the same course.
+      if (
+        args.code &&
+        (await Assessment.exists({
+          course: assessment.course._id,
+          code: args.code,
+        }))
+      ) {
+        throw new UserInputError('INVALID_CODE', {
+          formErrors: {
+            code: 'The specified code already exists',
+          },
+        })
+      }
+
+      // Check that the constraints are satisfied.
+      // TODO: only check if it has been changed
+      const courseCompetencies = await Assessment.populate(assessment, [
+        {
+          path: 'course.competencies.competency',
+          select: 'code',
+          model: 'Competency',
+        },
+      ]).then((a) => a.course.competencies.map((c) => c.competency.code))
+      if (
+        args.competencies.some(
+          (c) => !courseCompetencies.includes(c.competency)
+        )
+      ) {
+        throw new UserInputError('INVALID_COMPETENCIES')
+      }
+
+      // Edit the assessment mongoose object.
+      for (const field of [
+        'category',
+        'code',
+        'competencies',
+        'description',
+        'end',
+        'incremental',
+        'instances',
+        'load',
+        'name',
+        'oralDefense',
+        'start',
+      ]) {
+        assessment[field] = args[field]
+      }
+      assessment.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: (await Competency.exists({ code: c.competency }))?._id,
+        }))
+      )
 
       // Save the assessment into the database.
       try {
