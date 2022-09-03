@@ -115,7 +115,13 @@ const resolvers = {
           delete args[field]
         }
       }
-      for (const field of ['end', 'start', 'hasOralDefense']) {
+      for (const field of [
+        'end',
+        'incremental',
+        'instances',
+        'oralDefense',
+        'start',
+      ]) {
         if (!args[field]) {
           delete args[field]
         }

@@ -34,6 +34,8 @@ const typeDefs = gql`
     id: ID!
     isClosed: Boolean @auth(requires: TEACHER)
     isHidden: Boolean @auth(requires: TEACHER)
+    isIncremental: Boolean
+    instances: Int
     load: AssessmentLoad
     name: String!
     start: DateTime
@@ -70,9 +72,11 @@ const typeDefs = gql`
       createEvent: Boolean
       description: String!
       end: DateTime
-      hasOralDefense: Boolean
+      incremental: Boolean
+      instances: Int
       load: AssessmentLoadInput
       name: String!
+      oralDefense: Boolean
       start: DateTime
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)

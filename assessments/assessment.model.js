@@ -74,11 +74,14 @@ const AssessmentSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'Event',
   },
-  hasOralDefense: {
-    type: Boolean,
-  },
   hidden: {
     type: Boolean,
+  },
+  incremental: {
+    type: Boolean,
+  },
+  instances: {
+    type: Number,
   },
   load: {
     defense: {
@@ -98,6 +101,9 @@ const AssessmentSchema = new Schema({
     type: String,
     trim: true,
     required: true,
+  },
+  oralDefense: {
+    type: Boolean,
   },
   start: {
     type: Date,
