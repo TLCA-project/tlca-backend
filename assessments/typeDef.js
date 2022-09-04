@@ -19,8 +19,9 @@ const typeDefs = gql`
   type AssessmentCompetency {
     competency: Competency!
     isOptional: Boolean
+    learningOutcomes: [Int!]
     maxStars: Int
-    stars: Int!
+    stars: Int
   }
 
   type AssessmentLoad {
@@ -60,9 +61,10 @@ const typeDefs = gql`
 
   input AssessmentCompetencyInput {
     competency: ID!
+    learningOutcomes: [Int!]
     maxStars: Int
     optional: Boolean
-    stars: Int!
+    stars: Int
   }
 
   input AssessmentLoadInput {

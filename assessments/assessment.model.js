@@ -10,6 +10,10 @@ const CompetencySchema = new Schema(
       ref: 'Competency',
       required: true,
     },
+    learningOutcomes: {
+      type: [Number],
+      default: undefined,
+    },
     maxStars: {
       type: Number,
       min: 1,
@@ -22,7 +26,6 @@ const CompetencySchema = new Schema(
       type: Number,
       min: 1,
       max: 3,
-      required: true,
     },
   },
   {

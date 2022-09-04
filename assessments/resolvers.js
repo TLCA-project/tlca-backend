@@ -25,6 +25,18 @@ function clean(args) {
   if (!Object.keys(args['load']).length) {
     delete args['load']
   }
+
+  // Clean up each competency.
+  for (const competency of args.competencies) {
+    if (!competency.learningOutcomes?.length) {
+      delete competency.learningOutcomes
+    }
+    for (const field of ['maxStars', 'optional', 'stars']) {
+      if (!competency[field]) {
+        delete competency[field]
+      }
+    }
+  }
 }
 
 const resolvers = {

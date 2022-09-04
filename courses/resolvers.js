@@ -310,7 +310,7 @@ const resolvers = {
       course = await Course.populate(course, [
         {
           path: 'competencies.competency',
-          select: 'code description name',
+          select: 'code description learningOutcomes name',
           model: 'Competency',
         },
         {
