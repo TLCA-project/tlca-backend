@@ -5,6 +5,16 @@ const { model, Schema } = mongoose
 
 const CompetencySchema = new Schema(
   {
+    checklist: {
+      private: {
+        type: [String],
+        default: undefined,
+      },
+      public: {
+        type: [String],
+        default: undefined,
+      },
+    },
     competency: {
       type: Schema.ObjectId,
       ref: 'Competency',
@@ -57,6 +67,7 @@ const AssessmentSchema = new Schema({
   },
   code: {
     type: String,
+    trim: true,
   },
   competencies: {
     type: [CompetencySchema],
@@ -107,8 +118,8 @@ const AssessmentSchema = new Schema({
   },
   name: {
     type: String,
-    trim: true,
     required: true,
+    trim: true,
   },
   oralDefense: {
     type: Boolean,

@@ -26,8 +26,15 @@ function clean(args) {
     delete args['load']
   }
 
-  // Clean up each competency.
+  // Clean up competencies.
   for (const competency of args.competencies) {
+    if (competency.checklist) {
+      for (const field of ['private', 'public']) {
+        if (!competency.checklist[field]?.length) {
+          delete competency.checklist[field]
+        }
+      }
+    }
     if (!competency.learningOutcomes?.length) {
       delete competency.learningOutcomes
     }
@@ -294,6 +301,7 @@ const resolvers = {
         (await Assessment.exists({
           course: assessment.course._id,
           code: args.code,
+          _id: { $ne: assessment._id },
         }))
       ) {
         throw new UserInputError('INVALID_CODE', {

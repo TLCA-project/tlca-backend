@@ -10,13 +10,20 @@ const typeDefs = gql`
     PROJECT
     QUIZ
   }
+
   enum AssessmentType {
     INCREMENTAL
     PHASED
     SINGLE_TAKE
   }
 
+  type AssessmentChecklist {
+    private: [String!] @auth(requires: TEACHER)
+    public: [String!]
+  }
+
   type AssessmentCompetency {
+    checklist: AssessmentChecklist
     competency: Competency!
     isOptional: Boolean
     learningOutcomes: [Int!]
@@ -59,7 +66,13 @@ const typeDefs = gql`
     ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
   }
 
+  input AssessmentChecklistInput {
+    private: [String!]
+    public: [String!]
+  }
+
   input AssessmentCompetencyInput {
+    checklist: AssessmentChecklistInput
     competency: ID!
     learningOutcomes: [Int!]
     maxStars: Int
