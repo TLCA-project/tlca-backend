@@ -44,6 +44,26 @@ const CompetencySchema = new Schema(
   }
 )
 
+const PhaseSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+    },
+    competencies: {
+      type: [CompetencySchema],
+      default: undefined,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
 const AssessmentSchema = new Schema({
   category: {
     type: String,
@@ -124,8 +144,19 @@ const AssessmentSchema = new Schema({
   oralDefense: {
     type: Boolean,
   },
+  phased: {
+    type: Boolean,
+  },
+  phases: {
+    type: [PhaseSchema],
+    default: undefined,
+  },
   start: {
     type: Date,
+  },
+  takes: {
+    type: Number,
+    min: 1,
   },
   user: {
     type: Schema.ObjectId,
@@ -134,21 +165,32 @@ const AssessmentSchema = new Schema({
 })
 
 AssessmentSchema.pre('validate', function (next) {
-  // There must be at least one mandatory competency.
-  if (!this.competencies.some((c) => !c.optional)) {
-    this.invalidate('competencies', 'MISSING_MANDATORY_COMPETENCY')
-  }
-
-  // Competencies must be all different.
-  const codes = new Set()
+  // Check whether competencies have been defined.
   if (
-    this.competencies.some(
-      (c) =>
-        codes.size ===
-        codes.add((c.competency._id || c.competency).toString()).size
-    )
+    (!this.phased && !this.competencies?.length) ||
+    (this.phased &&
+      !this.phases?.length &&
+      !this.phases.every((p) => p.competencies?.length))
   ) {
-    this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
+    this.invalidate('competencies', 'MISSING_COMPETENCIES')
+  }
+  // Perform several checks on the competencies
+  else {
+    const phases = !this.phased ? [this] : this.phases
+    for (const [i, phase] of phases.entries()) {
+      // Competencies must be all different.
+      const codes = new Set()
+      if (
+        phase.competencies.some(
+          (c) =>
+            codes.size ===
+            codes.add((c.competency._id || c.competency).toString()).size
+        )
+      ) {
+        const prefix = this.phased ? `phases-${i}-` : ''
+        this.invalidate(`${prefix}competencies`, 'DUPLICATE_COMPETENCIES')
+      }
+    }
   }
 
   // Start date must be strictly before end date,

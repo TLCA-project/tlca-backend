@@ -37,10 +37,16 @@ const typeDefs = gql`
     work: Int
   }
 
+  type AssessmentPhase {
+    competencies: [AssessmentCompetency!]
+    description: String
+    name: String!
+  }
+
   type Assessment {
     category: AssessmentCategory!
     code: String
-    competencies: [AssessmentCompetency!]!
+    competencies: [AssessmentCompetency!]
     course: Course!
     description: String!
     end: DateTime
@@ -49,10 +55,13 @@ const typeDefs = gql`
     isClosed: Boolean @auth(requires: TEACHER)
     isHidden: Boolean @auth(requires: TEACHER)
     isIncremental: Boolean
+    isPhased: Boolean
     instances: Int
     load: AssessmentLoad
     name: String!
+    phases: [AssessmentPhase!]
     start: DateTime
+    takes: Int
     type: AssessmentType
   }
 
@@ -86,11 +95,17 @@ const typeDefs = gql`
     work: Int
   }
 
+  input AssessmentPhaseInput {
+    competencies: [AssessmentCompetencyInput!]
+    description: String
+    name: String!
+  }
+
   extend type Mutation {
     createAssessment(
       category: AssessmentCategory!
       code: String
-      competencies: [AssessmentCompetencyInput!]!
+      competencies: [AssessmentCompetencyInput!]
       course: ID!
       createEvent: Boolean
       description: String!
@@ -100,12 +115,15 @@ const typeDefs = gql`
       load: AssessmentLoadInput
       name: String!
       oralDefense: Boolean
+      phased: Boolean
+      phases: [AssessmentPhaseInput!]
       start: DateTime
+      takes: Int
     ): Assessment @auth(requires: TEACHER)
     editAssessment(
       category: AssessmentCategory!
       code: String
-      competencies: [AssessmentCompetencyInput!]!
+      competencies: [AssessmentCompetencyInput!]
       createEvent: Boolean
       description: String!
       end: DateTime
@@ -115,7 +133,10 @@ const typeDefs = gql`
       load: AssessmentLoadInput
       name: String!
       oralDefense: Boolean
+      phased: Boolean
+      phases: [AssessmentPhaseInput!]
       start: DateTime
+      takes: Int
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)

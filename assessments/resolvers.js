@@ -3,45 +3,38 @@ import { DateTime } from 'luxon'
 
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
+import {
+  cleanArray,
+  cleanField,
+  cleanObject,
+  cleanString,
+} from '../lib/utils.js'
 
 // Clean up the optional args related to an assessment.
 function clean(args) {
-  for (const field of ['code', 'description']) {
-    if (!args[field]?.trim().length) {
-      delete args[field]
-    }
-  }
-  for (const field of [
+  cleanArray(args, 'competencies', 'phases')
+  cleanField(
+    args,
     'end',
     'incremental',
     'instances',
     'oralDefense',
+    'phased',
     'start',
-  ]) {
-    if (!args[field]) {
-      delete args[field]
-    }
-  }
-  if (!Object.keys(args['load']).length) {
-    delete args['load']
-  }
+    'takes'
+  )
+  cleanObject(args, 'load')
+  cleanString(args, 'code', 'description')
 
   // Clean up competencies.
-  for (const competency of args.competencies) {
-    if (competency.checklist) {
-      for (const field of ['private', 'public']) {
-        if (!competency.checklist[field]?.length) {
-          delete competency.checklist[field]
-        }
+  const phases = !args.phased ? [args] : args.phases
+  for (const phase of phases) {
+    for (const competency of phase.competencies) {
+      if (competency.checklist) {
+        cleanArray(competency.checklist, 'private', 'public')
       }
-    }
-    if (!competency.learningOutcomes?.length) {
-      delete competency.learningOutcomes
-    }
-    for (const field of ['maxStars', 'optional', 'stars']) {
-      if (!competency[field]) {
-        delete competency[field]
-      }
+      cleanArray(competency, 'learningOutcomes')
+      cleanField(competency, 'maxStars', 'optional', 'stars')
     }
   }
 }
@@ -66,6 +59,9 @@ const resolvers = {
     async competencies(assessment, _args, { models }, _info) {
       const { Assessment } = models
 
+      if (assessment.phased) {
+        return null
+      }
       return await Assessment.populate(assessment, [
         {
           path: 'competencies.competency',
@@ -176,6 +172,14 @@ const resolvers = {
     async createAssessment(_parent, args, { models, user }, _info) {
       const { Assessment, Competency, Course, Event } = models
 
+      // Either competencies or phases must be defined.
+      if (!args.phased && !args.competencies) {
+        throw new UserInputError('MISSING_COMPETENCIES')
+      }
+      if (args.phased && !args.phases) {
+        throw new UserInputError('MISSING_PHASES')
+      }
+
       // Clean up the optional args.
       clean(args)
 
@@ -210,22 +214,39 @@ const resolvers = {
       const courseCompetencies = course.competencies.map(
         (c) => c.competency.code
       )
-      if (
-        args.competencies.some(
-          (c) => !courseCompetencies.includes(c.competency)
-        )
-      ) {
-        throw new UserInputError('INVALID_COMPETENCIES')
+
+      const phases = !args.phased ? [args] : args.phases
+      for (const phase of phases) {
+        if (
+          phase.competencies.some(
+            (c) => !courseCompetencies.includes(c.competency)
+          )
+        ) {
+          throw new UserInputError('INVALID_COMPETENCIES')
+        }
       }
 
       // Create the assessment Mongoose object.
       const assessment = new Assessment(args)
-      assessment.competencies = await Promise.all(
-        args.competencies.map(async (c) => ({
-          ...c,
-          competency: (await Competency.exists({ code: c.competency }))?._id,
-        }))
-      )
+      const resolveCompetencies = async (c) => ({
+        ...c,
+        competency: (await Competency.exists({ code: c.competency }))?._id,
+      })
+      if (!args.phased) {
+        assessment.competencies = await Promise.all(
+          args.competencies.map(resolveCompetencies)
+        )
+      } else {
+        assessment.phases = await Promise.all(
+          args.phases.map(async (p) => ({
+            ...p,
+            competencies: await Promise.all(
+              p.competencies.map(resolveCompetencies)
+            ),
+          }))
+        )
+      }
+
       assessment.course = course._id
       assessment.user = user.id
 
