@@ -2,6 +2,24 @@ import mongoose from 'mongoose'
 
 const { model, Schema } = mongoose
 
+const LearningOutcomeSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    takes: {
+      type: Number,
+      min: 1,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
 const CompetencySchema = new Schema({
   code: {
     type: String,
@@ -17,12 +35,7 @@ const CompetencySchema = new Schema({
     type: String,
   },
   learningOutcomes: {
-    type: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    type: [LearningOutcomeSchema],
     default: undefined,
   },
   name: {
@@ -67,7 +80,7 @@ CompetencySchema.pre('validate', function (next) {
   if (
     this.learningOutcomes &&
     (!this.learningOutcomes.length ||
-      this.learningOutcomes.some((lo) => !lo.length))
+      this.learningOutcomes.some((lo) => !lo.name?.length))
   ) {
     this.invalidate('learningOutcomes', 'EMPTY_LEARNING_OUTCOMES')
   }
