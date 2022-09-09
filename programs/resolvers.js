@@ -2,6 +2,39 @@ import { UserInputError } from 'apollo-server'
 import mongoose from 'mongoose'
 
 import { isCoordinator } from '../lib/courses.js'
+import { cleanField } from '../lib/utils.js'
+
+// Clean up the optional args related to a program.
+function clean(args) {
+  // Clean up courses.
+  for (const course of args.courses) {
+    cleanField(course, 'optional')
+  }
+}
+
+// Handle errors resulting from the creation or edit of a program.
+function handleError(err) {
+  const formErrors = {}
+
+  switch (err.name) {
+    case 'MongoServerError':
+      switch (err.code) {
+        case 11000:
+          throw new UserInputError('EXISTING_CODE', {
+            formErrors: {
+              code: 'The specified code already exists',
+            },
+          })
+      }
+      break
+
+    case 'ValidationError':
+      Object.keys(err.errors).forEach(
+        (e) => (formErrors[e] = err.errors[e].properties.message)
+      )
+      throw new UserInputError('VALIDATION_ERROR', { formErrors })
+  }
+}
 
 const resolvers = {
   ProgramStatus: {
@@ -32,10 +65,11 @@ const resolvers = {
     // Retrieve the detailed information about the courses of this program.
     async courses(program, _args, { models }, _info) {
       const { Program } = models
+
       return await Program.populate(program, {
         path: 'courses.course',
         model: 'Course',
-      }).then((p) => p.courses)
+      }).then((p) => p.courses.map((c) => ({ ...c, isOptional: c.optional })))
     },
     // Retrieve whether this program is archived.
     isArchived(program, _args, _context, _info) {
@@ -236,15 +270,8 @@ const resolvers = {
     async createProgram(_parent, args, { models, user }, _info) {
       const { Course, Program } = models
 
-      // Check that the constraints are satisfied.
-      if (!args.courses.some((c) => !c.optional)) {
-        throw new UserInputError('MISSING_MANDATORY_COURSE')
-      }
-
-      const codes = new Set()
-      if (args.courses.some((c) => codes.size === codes.add(c.course).size)) {
-        throw new UserInputError('DUPLICATE_COURSES')
-      }
+      // Clean up the optional args.
+      clean(args)
 
       // Create the program Mongoose object.
       const program = new Program(args)
@@ -261,23 +288,43 @@ const resolvers = {
       try {
         return await program.save()
       } catch (err) {
-        switch (err.name) {
-          case 'MongoServerError': {
-            switch (err.code) {
-              case 11000: {
-                throw new UserInputError('EXISTING_CODE', {
-                  formErrors: {
-                    code: 'The specified code already exists',
-                  },
-                })
-              }
-            }
-            break
-          }
-        }
+        handleError(err)
       }
 
-      return false
+      return null
+    },
+    // Edit an existing program with the specified parameters.
+    async editProgram(_parent, args, { models, user }, _info) {
+      const { Course, Program } = models
+
+      // Retrieve the program to edit.
+      const program = await Program.findOne({ code: args.code })
+      if (!program || !isCoordinator(program, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the program mongoose object.
+      for (const field of ['description', 'name', 'type', 'visibility']) {
+        program[field] = args[field]
+      }
+      program.courses = await Promise.all(
+        args.courses.map(async (c) => ({
+          ...c,
+          course: (await Course.exists({ code: c.course }))?._id,
+        }))
+      )
+
+      // Save the program into the database.
+      try {
+        return await program.save()
+      } catch (err) {
+        handleError(err)
+      }
+
+      return null
     },
     async publishProgram(_parent, args, { models, user }, _info) {
       const { Program } = models

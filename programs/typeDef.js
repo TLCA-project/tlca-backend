@@ -26,7 +26,7 @@ const typeDefs = gql`
 
   type ProgramCourse {
     course: Course!
-    optional: Boolean
+    isOptional: Boolean
   }
 
   type Program {
@@ -69,6 +69,14 @@ const typeDefs = gql`
       courses: [ProgramCourseInput!]!
       description: String
       name: String!
+      type: ProgramType
+      visibility: ProgramVisibility
+    ): Program @auth(requires: TEACHER)
+    editProgram(
+      code: String!
+      courses: [ProgramCourseInput!]
+      description: String
+      name: String
       type: ProgramType
       visibility: ProgramVisibility
     ): Program @auth(requires: TEACHER)
