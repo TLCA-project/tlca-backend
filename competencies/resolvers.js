@@ -1,18 +1,17 @@
 import { UserInputError } from 'apollo-server'
 import mongoose from 'mongoose'
 
+import { cleanArray, cleanField, cleanString } from '../lib/utils.js'
+
 // Clean up the optional args related to a competency.
 function clean(args) {
-  for (const field of ['learningOutcomes', 'partners', 'tags']) {
-    if (!args[field]?.length) {
-      delete args[field]
-    }
-  }
-  if (args.description?.trim().length === 0) {
-    args.description = undefined
-  }
-  if (!args.public) {
-    args.public = undefined
+  cleanArray(args, 'learningOutcomes', 'partners', 'tags')
+  cleanField(args, 'public')
+  cleanString(args, 'description')
+
+  // Clean up learning outcomes.
+  for (const learningOutcome of args.learningOutcomes) {
+    cleanField(learningOutcome, 'takes')
   }
 }
 
