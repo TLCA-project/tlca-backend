@@ -3,6 +3,56 @@ import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 
 import { isCoordinator } from '../lib/courses.js'
+import {
+  cleanArray,
+  cleanField,
+  cleanObject,
+  cleanString,
+} from '../lib/utils.js'
+
+// Clean up the optional args related to a course.
+function clean(args) {
+  cleanArray(args, 'partners', 'schedule', 'tags', 'teachers')
+  cleanField(args, 'colophon', 'field', 'language', 'span')
+  cleanObject(args, 'load')
+  cleanString(args, 'description')
+
+  // Clean up competencies.
+  for (const competency of args.competencies) {
+    cleanField(competency, 'useLearningOutcomes')
+    cleanString(competency, 'subcategory')
+  }
+
+  // Clean up groups.
+  if (args.groups) {
+    cleanArray(args.groups, 'teaching', 'working')
+  }
+  cleanObject(args, 'groups')
+}
+
+// Handle errors resulting from the creation or edit of a course.
+function handleError(err) {
+  const formErrors = {}
+
+  switch (err.name) {
+    case 'MongoServerError':
+      switch (err.code) {
+        case 11000:
+          throw new UserInputError('EXISTING_CODE', {
+            formErrors: {
+              code: 'The specified code already exists',
+            },
+          })
+      }
+      break
+
+    case 'ValidationError':
+      Object.keys(err.errors).forEach(
+        (e) => (formErrors[e] = err.errors[e].properties.message)
+      )
+      throw new UserInputError('VALIDATION_ERROR', { formErrors })
+  }
+}
 
 const resolvers = {
   CompetencyCategory: {
@@ -475,35 +525,14 @@ const resolvers = {
       const { Competency, Course, Partner, User } = models
 
       // Clean up the optional args.
-      for (const field of ['colophon', 'field', 'language', 'span']) {
-        if (!args[field]) {
-          delete args[field]
-        }
-      }
-      for (const field of ['partners', 'schedule', 'tags', 'teachers']) {
-        if (!args[field].length) {
-          delete args[field]
-        }
-      }
-      if (args.groups) {
-        for (const field of ['teaching', 'working']) {
-          if (!args.groups[field].length) {
-            delete args.groups[field]
-          }
-        }
-      }
-      for (const field of ['groups', 'load']) {
-        if (!Object.keys(args[field]).length) {
-          delete args[field]
-        }
-      }
+      clean(args)
 
       // Create the course Mongoose object.
       const course = new Course(args)
       course.competencies = await Promise.all(
         args.competencies.map(async (c) => ({
           ...c,
-          competency: (await Competency.findOne({ code: c.competency }))?._id,
+          competency: (await Competency.exists({ code: c.competency }))?._id,
         }))
       )
       course.coordinator = user.id
@@ -512,7 +541,7 @@ const resolvers = {
         course.groups.teaching = await Promise.all(
           args.groups.teaching.map(async (g) => ({
             ...g,
-            supervisor: (await User.findOne({ username: g.supervisor }))?._id,
+            supervisor: (await User.exists({ username: g.supervisor }))?._id,
           }))
         )
       }
@@ -524,7 +553,7 @@ const resolvers = {
       }
       if (args.partners) {
         course.partners = await Promise.all(
-          args.partners.map(async (p) => await Partner.findOne({ code: p }))
+          args.partners.map(async (p) => await Partner.exists({ code: p })?._id)
         )
       }
       if (args.schedule?.length) {
@@ -538,7 +567,9 @@ const resolvers = {
       }
       if (args.teachers) {
         course.teachers = await Promise.all(
-          args.teachers.map(async (t) => await User.findOne({ username: t }))
+          args.teachers.map(
+            async (t) => await User.exists({ username: t })?._id
+          )
         )
       }
       course.user = user.id
@@ -547,29 +578,84 @@ const resolvers = {
       try {
         return await course.save()
       } catch (err) {
-        const formErrors = {}
-
-        switch (err.name) {
-          case 'MongoServerError':
-            switch (err.code) {
-              case 11000:
-                throw new UserInputError('EXISTING_CODE', {
-                  formErrors: {
-                    code: 'The specified code already exists',
-                  },
-                })
-            }
-            break
-
-          case 'ValidationError':
-            Object.keys(err.errors).forEach(
-              (e) => (formErrors[e] = err.errors[e].properties.message)
-            )
-            throw new UserInputError('VALIDATION_ERROR', { formErrors })
-        }
+        handleError(err)
       }
 
-      return false
+      return null
+    },
+    async editCourse(_parent, args, { models, user }, _info) {
+      const { Competency, Course, Partner, User } = models
+
+      // Retrieve the course to edit.
+      const course = await Course.findOne({ code: args.code })
+      if (!course || !isCoordinator(course, user)) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the course mongoose object.
+      for (const field of [
+        'colophon',
+        'description',
+        'field',
+        'language',
+        'load',
+        'name',
+        'span',
+        'tags',
+        'type',
+        'visibility',
+      ]) {
+        course[field] = args[field]
+      }
+      course.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: await Competency.exists({ code: c.competency }),
+        }))
+      )
+      course.groups = !args.groups ? undefined : {}
+      course.groups.teaching = !args.groups?.teaching
+        ? undefined
+        : await Promise.all(
+            args.groups.teaching.map(async (g) => ({
+              ...g,
+              supervisor: await User.exists({ username: g.supervisor }),
+            }))
+          )
+      if (!course.groups.teaching && !course.groups.working) {
+        course.groups = undefined
+      }
+      course.partners = !args.partners
+        ? undefined
+        : await Promise.all(
+            args.partners.map(async (p) => await Partner.exists({ code: p }))
+          )
+      course.schedule = !args.schedule
+        ? undefined
+        : args.schedule.reduce(
+            (schedule, event) => ({
+              ...schedule,
+              [event.name]: event.datetime,
+            }),
+            {}
+          )
+      course.teachers = !args.teachers
+        ? undefined
+        : await Promise.all(
+            args.teachers.map(async (t) => await User.exists({ username: t }))
+          )
+
+      // Save the course into the database.
+      try {
+        return await course.save()
+      } catch (err) {
+        handleError(err)
+      }
+
+      return null
     },
     async publishCourse(_parent, args, { models, user }, _info) {
       const { Course } = models

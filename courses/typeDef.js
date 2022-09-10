@@ -161,12 +161,30 @@ const typeDefs = gql`
       code: String!
       colophon: String
       competencies: [CourseCompetencyInput!]!
-      description: String
+      description: String!
       field: String
       groups: CourseGroupInput
       language: String
       load: CourseLoadInput
       name: String!
+      partners: [ID!]
+      schedule: [EventInput!]
+      span: Int
+      tags: [String!]
+      teachers: [ID!]
+      type: CourseType!
+      visibility: Visibility
+    ): Course @auth(requires: TEACHER)
+    editCourse(
+      code: String!
+      colophon: String
+      competencies: [CourseCompetencyInput!]
+      description: String
+      field: String
+      groups: CourseGroupInput
+      language: String
+      load: CourseLoadInput
+      name: String
       partners: [ID!]
       schedule: [EventInput!]
       span: Int
