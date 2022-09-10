@@ -28,6 +28,7 @@ const typeDefs = gql`
     signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
     signUp(email: String!, password: String!): Boolean
+    validateAccount(username: String!, emailConfirmationToken: String!): Boolean
   }
 `
 

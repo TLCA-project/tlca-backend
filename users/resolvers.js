@@ -1,3 +1,4 @@
+import Bugsnag from '@bugsnag/js'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 import jwt from 'jsonwebtoken'
 import { DateTime } from 'luxon'
@@ -117,10 +118,13 @@ const resolvers = {
             { username: args.usernameOrEmail },
           ],
         },
-        '_id password roles salt'
+        '_id emailConfirmed password roles salt'
       )
       if (!user?.authenticate(args.password)) {
         throw new UserInputError('INVALID_CREDENTIALS')
+      }
+      if (!user.emailConfirmed) {
+        throw new UserInputError('UNCONFIRMED_EMAIL_ADDRESS')
       }
 
       // Create the access and the refresh tokens.
@@ -160,20 +164,32 @@ const resolvers = {
 
       return false
     },
-    async signUp(_parent, args, { models }, _info) {
+    async signUp(_parent, args, { models, smtpTransport }, _info) {
       const { User } = models
 
-      if (!args.email || !args.password) {
-        throw new UserInputError('MISSING_FIELDS')
-      }
-
+      // Create the user Mongoose object.
       const user = new User(args)
       user.provider = 'local'
 
       user.updateEmail(args.email)
 
+      // Save the user into the database.
       try {
         await user.save()
+
+        // Send a confirmation email to the new user.
+        const validationURL = `https://www.tlca.eu/profiles/${user.username}/${user.emailConfirmationToken}`
+        await smtpTransport.sendMail({
+          to: args.email,
+          from: 'sebastien@combefis.be',
+          subject: '[TLCA] Email address validation',
+          html:
+            '<p>Hello,</p>' +
+            '<p>Thank you for creating an account on the TLCA platform.</p>' +
+            `<p>In order to be able to connect on the platform, you first need to validate your email address. You can do so by visiting the following page:</p><p><a href="${validationURL}">${validationURL}</a></p>` +
+            '<p>The TLCA team</p>',
+        })
+
         return true
       } catch (err) {
         switch (err.name) {
@@ -196,8 +212,41 @@ const resolvers = {
             break
           }
         }
-        return false
       }
+
+      return false
+    },
+    // Validate the email address of a new account.
+    async validateAccount(_parent, args, { models }, _info) {
+      const { User } = models
+
+      // Retrieve the user to validate.
+      const user = await User.findOne(
+        { username: args.username },
+        'emailConfirmationToken emailConfirmationTokenExpires'
+      )
+      if (
+        !user ||
+        user.emailConfirmationToken !== args.emailConfirmationToken ||
+        DateTime.now() > DateTime.fromISO(user.emailConfirmationTokenExpires)
+      ) {
+        throw new UserInputError('USER_NOT_FOUND')
+      }
+
+      // Validate the user.
+      user.emailConfirmationToken = undefined
+      user.emailConfirmationTokenExpires = undefined
+      user.emailConfirmed = new Date()
+
+      // Save the user into the database.
+      try {
+        await user.save()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
     },
   },
 }

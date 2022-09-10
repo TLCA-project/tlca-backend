@@ -2,6 +2,7 @@ import Bugsnag from '@bugsnag/js'
 import { ApolloServer } from 'apollo-server'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
+import nodemailer from 'nodemailer'
 
 import { schema, models } from './data/schema.js'
 import { connectDB } from './lib/mongoose.js'
@@ -19,14 +20,27 @@ const bugsnagPlugin = () => ({
   requestDidStart: async () => ({
     async didEncounterErrors(requestContext) {
       requestContext.errors.forEach((error) => {
-        Bugsnag.notify(error, (event) => {
-          event.addMetadata('GraphQLMetadata', {
-            path: error.path,
-          })
-        })
+        console.log(error)
+        // Bugsnag.notify(error, (event) => {
+        //   event.addMetadata('GraphQLMetadata', {
+        //     path: error.path,
+        //   })
+        // })
       })
     },
   }),
+})
+
+// Initialise SMTP transport.
+const smtpTransport = nodemailer.createTransport({
+  host: process.env.SMTP_SERVER,
+  port: 587,
+  secure: false,
+  ignoreTLS: true,
+  auth: {
+    user: process.env.SMTP_SERVER_USER,
+    pass: process.env.SMTP_SERVER_PASSWORD,
+  },
 })
 
 // Connect to MongoDB.
@@ -53,6 +67,7 @@ const server = new ApolloServer({
     return {
       env: process.env,
       models,
+      smtpTransport,
       user,
     }
   },

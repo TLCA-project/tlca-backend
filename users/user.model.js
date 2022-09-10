@@ -1,5 +1,6 @@
 import { passwordStrength } from 'check-password-strength'
 import crypto from 'crypto'
+import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 import validator from 'validator'
 
@@ -126,7 +127,7 @@ const UserSchema = new Schema(
 
 UserSchema.pre('save', function (next) {
   // Set the username to the '_id' as a default value.
-  if (!this.username && this.isModified('_id')) {
+  if (!this.username) {
     this.username = this._id
   }
 
@@ -154,24 +155,31 @@ UserSchema.pre('validate', function (next) {
   next()
 })
 
+// Check that the specified password matches the ones of this user.
 UserSchema.methods.authenticate = function (password) {
   return this.password === this.hashPassword(password)
 }
 
+// Hash the specified password.
 UserSchema.methods.hashPassword = function (password) {
   if (!this.salt || !password) {
     return password
   }
+
   return crypto
     .pbkdf2Sync(password, Buffer.from(this.salt, 'base64'), 10000, 64, 'SHA1')
     .toString('base64')
 }
 
+// Update the email address and invalidate the account of this user.
 UserSchema.methods.updateEmail = function (email) {
   this.email = email
 
   delete this.emailConfirmed
   this.emailConfirmationToken = crypto.randomBytes(20).toString('hex')
+  this.emailConfirmationTokenExpires = DateTime.now()
+    .plus({ minutes: 10 })
+    .toISO()
 }
 
 export default model('User', UserSchema)
