@@ -66,7 +66,7 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    assessment(id: ID!): Assessment @auth(requires: TEACHER)
+    assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
     assessments(
       courseCode: ID
       limit: Int
