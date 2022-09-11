@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { getPathCompleter } from '../lib/models.js'
+import { getBannerPathCleaner, getPathCompleter } from '../lib/models.js'
 
 const { model, Schema } = mongoose
 
@@ -55,5 +55,6 @@ PartnerSchema.post(
   ['aggregate', 'find', 'findOne'],
   getPathCompleter('partners')
 )
+PartnerSchema.pre('save', getBannerPathCleaner)
 
 export default model('Partner', PartnerSchema)

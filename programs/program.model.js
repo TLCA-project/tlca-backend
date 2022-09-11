@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { getPathCompleter } from '../lib/models.js'
+import { getBannerPathCleaner, getPathCompleter } from '../lib/models.js'
 
 const { model, Schema } = mongoose
 
@@ -116,5 +116,6 @@ ProgramSchema.post(
   ['aggregate', 'find', 'findOne'],
   getPathCompleter('programs')
 )
+ProgramSchema.pre('save', getBannerPathCleaner)
 
 export default model('Program', ProgramSchema)
