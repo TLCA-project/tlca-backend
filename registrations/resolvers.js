@@ -121,7 +121,9 @@ const resolvers = {
         user.id !== registration.user.toString() ||
         !course.published ||
         course.archived ||
-        course.visibility !== 'private' ||
+        !(
+          course.visibility === 'invite-only' || course.visibility === 'private'
+        ) ||
         !canEnroll(course, now)
       ) {
         throw new UserInputError('INVITATION_ACCEPTANCE_FAILED')

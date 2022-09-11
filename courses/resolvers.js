@@ -121,13 +121,24 @@ const resolvers = {
     hasWorkingGroups(course, _args, _context, _info) {
       return course.groups?.working?.length
     },
+    // Check whether the connected user has received an invitation for this course.
+    async hasReceivedInvitation(course, _args, { models, user }, _info) {
+      const { Registration } = models
+
+      const registration = await Registration.findOne({
+        course: course._id,
+        user: user.id,
+      }).lean()
+      return registration?.invitation === 'sent'
+    },
+    // Check whether the connected user has requested an invitation for this course.
     async hasRequestedInvitation(course, _args, { models, user }, _info) {
       const { Registration } = models
 
       const registration = await Registration.findOne({
         course: course._id,
         user: user.id,
-      })
+      }).lean()
       return registration?.invitation === 'requested'
     },
     isArchived(course, _args, _context, _info) {
