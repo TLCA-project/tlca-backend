@@ -103,8 +103,10 @@ const resolvers = {
           token,
         }
       } catch (err) {
-        console.log(err)
+        Bugsnag.notify(err)
       }
+
+      return null
     },
     async signIn(_parent, args, { env, models }, _info) {
       const { User } = models
@@ -138,8 +140,10 @@ const resolvers = {
           token,
         }
       } catch (err) {
-        console.log(err)
+        Bugsnag.notify(err)
       }
+
+      return null
     },
     async signOut(_parent, _args, { models, user }, _info) {
       const { User } = models
@@ -159,7 +163,7 @@ const resolvers = {
         await loggedUser.save()
         return true
       } catch (err) {
-        console.log(err)
+        Bugsnag.notify(err)
       }
 
       return false
@@ -212,6 +216,8 @@ const resolvers = {
             break
           }
         }
+
+        Bugsnag.notify(err)
       }
 
       return false

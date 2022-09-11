@@ -127,7 +127,7 @@ const UserSchema = new Schema(
 
 UserSchema.pre('save', function (next) {
   // Set the username to the '_id' as a default value.
-  if (!this.username) {
+  if (!this.username && this.isNew) {
     this.username = this._id
   }
 
