@@ -27,6 +27,7 @@ const typeDefs = gql`
   }
 
   extend type Query {
+    registration(courseCode: ID): Registration @auth
     registrations(
       confirmed: Boolean
       courseCode: ID

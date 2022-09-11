@@ -40,6 +40,24 @@ const resolvers = {
     },
   },
   Query: {
+    async registration(_parent, args, { models, user }, _info) {
+      const { Course, Registration } = models
+
+      // Only consider registrations of the connected user.
+      const filter = { user: user.id }
+
+      // Retrieve the registration associated to a given course.
+      if (args.courseCode) {
+        const course = await Course.exists({ code: args.courseCode })
+        if (!course) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        filter.course = course._id
+      }
+
+      return await Registration.findOne(filter).lean()
+    },
     // Retrieve all the registrations
     // that are available to the connected user.
     async registrations(_parent, args, { models, user }, _info) {
