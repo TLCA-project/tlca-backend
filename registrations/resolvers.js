@@ -354,12 +354,17 @@ const resolvers = {
       return null
     },
     // Send an invitation to an existing user or just to an email address.
-    async sendInvitation(_parent, args, { models, user }, _info) {
+    async sendInvitation(
+      _parent,
+      args,
+      { models, smtpTransport, user },
+      _info
+    ) {
       const { Course, Registration, User } = models
 
       const course = await Course.findOne(
         { code: args.courseCode },
-        'archived coordinator published schedule teachers visibility'
+        'archived code coordinator name published schedule teachers visibility'
       ).lean()
       if (!course) {
         throw new UserInputError('Course not found.')
@@ -411,8 +416,17 @@ const resolvers = {
       if (!invitedUser) {
         fields.email = args.email
 
-        // TODO: send an email to inform that the user has been invited
-        console.log('invitation email sent!')
+        // Send an invitation email to the user.
+        await smtpTransport.sendMail({
+          to: args.email,
+          from: 'sebastien@combefis.be',
+          subject: '[TLCA] Invitation to a course',
+          html:
+            '<p>Hello,</p>' +
+            `<p>You have been invited to the <i>“${course.code} – ${course.name}”</i> by its coordinator.</p>` +
+            `<p>To accept the invitation, create an account on the <a href="https://www.tlca.eu">TLCA platform</a> with the email address on which you received this invitation.</p>` +
+            '<p>The TLCA team</p>',
+        })
       }
       const registration = new Registration(fields)
 

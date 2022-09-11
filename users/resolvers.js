@@ -169,7 +169,7 @@ const resolvers = {
       return false
     },
     async signUp(_parent, args, { models, smtpTransport }, _info) {
-      const { User } = models
+      const { Registration, User } = models
 
       // Create the user Mongoose object.
       const user = new User(args)
@@ -193,6 +193,17 @@ const resolvers = {
             `<p>In order to be able to connect on the platform, you first need to validate your email address. You can do so by visiting the following page:</p><p><a href="${validationURL}">${validationURL}</a></p>` +
             '<p>The TLCA team</p>',
         })
+
+        // Update any invitation that have been sent to this user.
+        const registrations = await Registration.find({ email: args.email })
+        await Promise.all(
+          registrations.map(async (registration) => {
+            registration.email = undefined
+            registration.user = user._id
+
+            await registration.save()
+          })
+        )
 
         return true
       } catch (err) {
