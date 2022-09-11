@@ -20,12 +20,17 @@ const bugsnagPlugin = () => ({
   requestDidStart: async () => ({
     async didEncounterErrors(requestContext) {
       requestContext.errors.forEach((error) => {
-        console.log(error)
-        // Bugsnag.notify(error, (event) => {
-        //   event.addMetadata('GraphQLMetadata', {
-        //     path: error.path,
-        //   })
-        // })
+        if (
+          !['BAD_USER_INPUT', 'UNAUTHENTICATED'].includes(
+            error.extensions?.code
+          )
+        ) {
+          Bugsnag.notify(error, (event) => {
+            event.addMetadata('GraphQLMetadata', {
+              path: error.path,
+            })
+          })
+        }
       })
     },
   }),
