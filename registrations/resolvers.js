@@ -71,15 +71,15 @@ const resolvers = {
     // Retrieve all the registrations
     // that are available to the connected user.
     async registrations(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
+      const { Course, Program, Registration } = models
 
       const filter = {}
 
       // Only 'admin' can access all the registrations
       // without specifying a course code.
-      if (!args.courseCode && !hasRole(user, 'admin')) {
+      if (!args.courseCode === !args.programCode && !hasRole(user, 'admin')) {
         throw new UserInputError(
-          'The courseCode param is required for non-admin users.'
+          'The courseCode/programCode param is required for non-admin users.'
         )
       }
 
@@ -90,7 +90,7 @@ const resolvers = {
       if (args.courseCode) {
         const course = await Course.findOne(
           { code: args.courseCode },
-          'coordinator groups teachers'
+          '_id coordinator groups teachers'
         ).lean()
 
         if (
@@ -115,6 +115,20 @@ const resolvers = {
             { 'group.teaching': { $in: groups } },
           ]
         }
+      }
+
+      if (args.programCode) {
+        const program = await Program.findOne(
+          { code: args.programCode },
+          '_id coordinator'
+        ).lean()
+
+        if (!program || !isCoordinator(program, user)) {
+          throw new UserInputError('PROGRAM_NOT_FOUND')
+        }
+
+        // Filter the registrations according to the provided program code.
+        filter.program = program._id
       }
 
       return await Registration.find(filter).populate('user').lean()
@@ -171,38 +185,100 @@ const resolvers = {
 
       return null
     },
-    // Accept an invitation request made by a user for a given course, as its coordinator.
+    // Accept an invitation request made by a user for a given course or program, as its coordinator.
     async acceptInvitationRequest(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
+      const { Course, Program, Registration } = models
 
       const registration = await Registration.findOne(
         { _id: args.id },
-        'course date invitation user'
+        'course date invitation program user'
       )
       if (!registration || registration.invitation !== 'requested') {
         throw new UserInputError('REGISTRATION_NOT_FOUND')
       }
 
-      const course = await Course.findOne(
-        { _id: registration.course },
-        'archived coordinator published schedule visibility'
-      ).lean()
-      if (!course) {
-        throw new UserInputError('COURSE_NOT_FOUND')
+      const now = DateTime.now()
+
+      // Check whether it is possible to register to the course.
+      if (registration.course) {
+        const course = await Course.findOne(
+          { _id: registration.course },
+          'archived coordinator published schedule visibility'
+        ).lean()
+        if (!course) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        // Only the coordinator can accept an invitation request
+        // for a course with the 'published' status and 'invite-only' visibility
+        // and within the registration schedule, if any.
+        if (
+          !isCoordinator(course, user) ||
+          !course.published ||
+          course.archived ||
+          course.visibility !== 'invite-only' ||
+          !canEnroll(course, now)
+        ) {
+          throw new UserInputError('INVITATION_REQUEST_ACCEPTANCE_FAILED')
+        }
       }
 
-      // Only the coordinator can accept an invitation request
-      // for a course with the 'published' status and 'invite-only' visibility
-      // and within the registration schedule, if any.
-      const now = DateTime.now()
-      if (
-        !isCoordinator(course, user) ||
-        !course.published ||
-        course.archived ||
-        course.visibility !== 'invite-only' ||
-        !canEnroll(course, now)
-      ) {
-        throw new UserInputError('INVITATION_REQUEST_ACCEPTANCE_FAILED')
+      // Check whether it is possible to register to the program.
+      if (registration.program) {
+        const program = await Program.findOne(
+          { _id: registration.program },
+          'archived coordinator courses published visibility'
+        ).lean()
+        if (!program) {
+          throw new UserInputError('PROGRAM_NOT_FOUND')
+        }
+
+        // Only the coordinator can accept an invitation request
+        // for a program with the 'published' status and 'invite-only' visibility
+        // and within the registration schedule, if any.
+        if (
+          !isCoordinator(program, user) ||
+          !program.published ||
+          program.archived ||
+          program.visibility !== 'invite-only'
+        ) {
+          throw new UserInputError('INVITATION_REQUEST_ACCEPTANCE_FAILED')
+        }
+
+        // Creates the registrations to all the courses of the program.
+        const courses = await Program.populate(program, [
+          {
+            path: 'courses.course',
+            select: '_id schedule',
+            model: 'Course',
+          },
+        ]).then((p) => p.courses.map((c) => c.course))
+
+        try {
+          await Promise.all(
+            courses.map(async (course) => {
+              const date =
+                course.schedule?.registrationsStart ??
+                course.schedule?.start ??
+                now
+
+              const registered = await Registration.exists({
+                course: course._id,
+                user: user.id,
+              })
+              if (!registered) {
+                const registration = new Registration({
+                  course: course._id,
+                  date,
+                  user: user.id,
+                })
+                await registration.save()
+              }
+            })
+          )
+        } catch (err) {
+          Bugsnag.notify(err)
+        }
       }
 
       // Accept the invitation request.
@@ -271,7 +347,8 @@ const resolvers = {
 
       return null
     },
-    // Remove the teaching or working group associated to this registration.
+    // Remove the teaching or working group associated to this registration
+    // (only possible for course registrations).
     async removeGroup(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
 
@@ -285,8 +362,9 @@ const resolvers = {
       )
       if (
         !registration ||
+        !registration.course ||
         registration.invitation ||
-        !registration.group[groupType]
+        !(groupType in registration.group)
       ) {
         throw new UserInputError('REGISTRATION_NOT_FOUND')
       }
