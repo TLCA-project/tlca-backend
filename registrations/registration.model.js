@@ -11,7 +11,6 @@ const RegistrationSchema = new Schema({
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.',
   },
   date: {
     type: Date,
@@ -36,6 +35,10 @@ const RegistrationSchema = new Schema({
   },
   invitationDate: {
     type: Date,
+  },
+  program: {
+    type: Schema.ObjectId,
+    ref: 'Program',
   },
   progress: {
     advanced: {

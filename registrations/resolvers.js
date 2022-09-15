@@ -41,7 +41,7 @@ const resolvers = {
   },
   Query: {
     async registration(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
+      const { Course, Program, Registration } = models
 
       // Only consider registrations of the connected user.
       const filter = { user: user.id }
@@ -54,6 +54,16 @@ const resolvers = {
         }
 
         filter.course = course._id
+      }
+
+      // Retrieve the registration associated to a given program.
+      if (args.programCode) {
+        const program = await Program.exists({ code: args.programCode })
+        if (!program) {
+          throw new UserInputError('PROGRAM_NOT_FOUND')
+        }
+
+        filter.program = program._id
       }
 
       return await Registration.findOne(filter).lean()
@@ -319,54 +329,110 @@ const resolvers = {
     },
     // Make a request to be invited for a given course, as a user.
     async requestInvitation(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
+      const { Course, Program, Registration } = models
 
-      const course = await Course.findOne(
-        { code: args.courseCode },
-        '_id archived coordinator published schedule teachers visibility'
-      ).lean()
-      if (!course) {
-        throw new UserInputError('Course not found.')
+      if (args.courseCode && args.programCode) {
+        throw new UserInputError('Bad args')
       }
 
-      // Can only request an invitation for
-      // a published course with 'invite-only' visibility
-      // and if the connected user is not the coordinator or a teacher of the course
-      // and within the registration schedule, if any.
-      const now = DateTime.now()
-      if (
-        !course.published ||
-        course.archived ||
-        course.visibility !== 'invite-only' ||
-        isCoordinator(course, user) ||
-        isTeacher(course, user) ||
-        !canEnroll(course, now)
-      ) {
-        throw new UserInputError('INVITATION_REQUEST_FAILED')
+      if (args.courseCode) {
+        const course = await Course.findOne(
+          { code: args.courseCode },
+          '_id archived coordinator published schedule teachers visibility'
+        ).lean()
+        if (!course) {
+          throw new UserInputError('Course not found.')
+        }
+
+        // Can only request an invitation for
+        // a published course with 'invite-only' visibility
+        // and if the connected user is not the coordinator or a teacher of the course
+        // and within the registration schedule, if any.
+        const now = DateTime.now()
+        if (
+          !course.published ||
+          course.archived ||
+          course.visibility !== 'invite-only' ||
+          isCoordinator(course, user) ||
+          isTeacher(course, user) ||
+          !canEnroll(course, now)
+        ) {
+          throw new UserInputError('INVITATION_REQUEST_FAILED')
+        }
+
+        // Check whether there is not already a registration.
+        const isRegistered = await Registration.exists({
+          course: course._id,
+          user: user.id,
+        })
+        if (isRegistered) {
+          throw new UserInputError('ALREADY_REGISTERED')
+        }
+
+        // Create a new registration for the user,
+        // representing the invitation request.
+        const registration = new Registration({
+          course: course._id,
+          invitation: 'requested',
+          invitationDate: now,
+          user: user.id,
+        })
+
+        try {
+          return await registration.save()
+        } catch (err) {
+          Bugsnag.notify(err)
+        }
       }
 
-      // Check whether there is not already a registration.
-      const isRegistered = await Registration.exists({
-        course: course._id,
-        user: user.id,
-      })
-      if (isRegistered) {
-        throw new UserInputError('ALREADY_REGISTERED')
-      }
+      if (args.programCode) {
+        const program = await Program.findOne(
+          { code: args.programCode },
+          '_id archived coordinator published schedule teachers visibility'
+        ).lean()
+        if (!program) {
+          throw new UserInputError('PROGRAM_NOT_FOUND')
+        }
 
-      // Create a new registration for the user,
-      // representing the invitation request.
-      const registration = new Registration({
-        course: course._id,
-        invitation: 'requested',
-        invitationDate: now,
-        user: user.id,
-      })
+        // Can only request an invitation for
+        // a published program with 'invite-only' visibility
+        // and if the connected user is not the coordinator of the program
+        // or the coordinator or a teacher of one of its courses
+        const now = DateTime.now()
+        if (
+          !program.published ||
+          program.archived ||
+          program.visibility !== 'invite-only'
+          // isCoordinator(course, user) ||
+          // isTeacher(course, user) ||
+          // !canEnroll(course, now)
+        ) {
+          throw new UserInputError('INVITATION_REQUEST_FAILED')
+        }
 
-      try {
-        return await registration.save()
-      } catch (err) {
-        Bugsnag.notify(err)
+        // Check whether there is not already a registration.
+        const isRegistered = await Registration.exists({
+          program: program._id,
+          user: user.id,
+        })
+        if (isRegistered) {
+          throw new UserInputError('ALREADY_REGISTERED')
+        }
+
+        // Create a new registration for the user,
+        // representing the invitation request.
+        const registration = new Registration({
+          program: program._id,
+          invitation: 'requested',
+          invitationDate: now,
+          user: user.id,
+        })
+
+        try {
+          return await registration.save()
+        } catch (err) {
+          Bugsnag.notify(err)
+        }
       }
 
       return null

@@ -27,12 +27,13 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    registration(courseCode: ID): Registration @auth
+    registration(courseCode: ID, programCode: ID): Registration @auth
     registrations(
       confirmed: Boolean
       courseCode: ID
       limit: Int
       offset: Int
+      programCode: ID
     ): [Registration!] @auth(requires: [ADMIN, TEACHER])
   }
 
@@ -42,7 +43,7 @@ const typeDefs = gql`
     register(courseCode: ID!): Registration @auth(requires: STUDENT)
     removeGroup(id: ID!, type: GroupType!): Registration
       @auth(requires: TEACHER)
-    requestInvitation(courseCode: ID!): Registration @auth
+    requestInvitation(courseCode: ID, programCode: ID): Registration @auth
     sendInvitation(courseCode: ID!, email: String!): Registration
       @auth(requires: TEACHER)
     updateGroup(id: ID!, group: Int!, type: GroupType!): Registration
