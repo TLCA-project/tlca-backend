@@ -1,6 +1,19 @@
 import { UserInputError } from 'apollo-server'
 
+// Clean up the optional args related to a competency.
+function clean(args) {
+  for (const field of ['abbreviation', 'website']) {
+    if (!args[field]?.trim().length) {
+      delete args[field]
+    }
+  }
+}
+
 const resolvers = {
+  PartnerView: {
+    MANAGER: 'manager',
+    USER: 'user',
+  },
   Partner: {
     async courses(partner, _args, { models: { Course } }, _info) {
       const pipeline = []
@@ -28,17 +41,29 @@ const resolvers = {
 
       return await Course.aggregate(pipeline)
     },
+    isManager(partner, _args, { user }, _info) {
+      const manager = partner.user
+      return (manager?._id || manager)?.toString() === user.id
+    },
   },
   Query: {
-    async partners(_parent, args, { models }, _info) {
+    async partners(_parent, args, { models, user }, _info) {
       const { Partner } = models
+
+      const filter = {}
+
+      // If a user is connected,
+      // adjust the filter according to his/her roles.
+      if (user && args.view === 'manager') {
+        filter.user = user.id
+      }
 
       // Set up offset and limit.
       const skip = Math.max(0, args.offset ?? 0)
       const limit = args.limit ?? undefined
 
-      // Retrieve all the courses satisfying the conditions defined hereabove.
-      const partners = await Partner.find({}, null, { skip, limit })
+      // Retrieve all the partners satisfying the conditions defined hereabove.
+      const partners = await Partner.find(filter, null, { skip, limit })
 
       return partners
     },
@@ -51,6 +76,48 @@ const resolvers = {
       }
 
       return partner
+    },
+  },
+  Mutation: {
+    // Create a new partner from the specified parameters.
+    async createPartner(_parent, args, { models, user }, _info) {
+      const { Partner } = models
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Create the partner mongoose object.
+      const partner = new Partner(args)
+      partner.representative = user.id
+      partner.user = user.id
+
+      // Save the partner into the database.
+      try {
+        return await partner.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
+
+        return false
+      }
     },
   },
 }

@@ -2,43 +2,56 @@ import { UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 
-import { isCoordinator, isTeacher } from '../lib/courses.js'
+import { isCoordinator } from '../lib/courses.js'
+import {
+  cleanArray,
+  cleanField,
+  cleanObject,
+  cleanString,
+} from '../lib/utils.js'
 
-function canEnroll(schedule, now) {
-  if (schedule) {
-    const isAfter = (dt) => dt > now
-    const isSameOrBefore = (dt) => dt <= now
+// Clean up the optional args related to a course.
+function clean(args) {
+  cleanArray(args, 'partners', 'schedule', 'tags', 'teachers')
+  cleanField(args, 'colophon', 'field', 'language', 'span')
+  cleanObject(args, 'load')
+  cleanString(args, 'description')
 
-    const events = [
-      {
-        field: 'registrationsStart',
-        check: isAfter,
-      },
-      {
-        field: 'registrationsEnd',
-        check: isSameOrBefore,
-      },
-      {
-        field: 'evaluationsEnd',
-        check: isSameOrBefore,
-      },
-      {
-        field: 'end',
-        check: isSameOrBefore,
-      },
-    ]
-
-    for (const event of events) {
-      if (
-        schedule[event.field] &&
-        event.check(DateTime.fromISO(schedule[event.field]))
-      ) {
-        return false
-      }
-    }
+  // Clean up competencies.
+  for (const competency of args.competencies) {
+    cleanField(competency, 'useLearningOutcomes')
+    cleanString(competency, 'subcategory')
   }
 
-  return true
+  // Clean up groups.
+  if (args.groups) {
+    cleanArray(args.groups, 'teaching', 'working')
+  }
+  cleanObject(args, 'groups')
+}
+
+// Handle errors resulting from the creation or edit of a course.
+function handleError(err) {
+  const formErrors = {}
+
+  switch (err.name) {
+    case 'MongoServerError':
+      switch (err.code) {
+        case 11000:
+          throw new UserInputError('EXISTING_CODE', {
+            formErrors: {
+              code: 'The specified code already exists',
+            },
+          })
+      }
+      break
+
+    case 'ValidationError':
+      Object.keys(err.errors).forEach(
+        (e) => (formErrors[e] = err.errors[e].properties.message)
+      )
+      throw new UserInputError('VALIDATION_ERROR', { formErrors })
+  }
 }
 
 const resolvers = {
@@ -83,23 +96,49 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
-    async groups(course, _args, { models }, _info) {
+    async groups(course, _args, { models, user }, _info) {
       const { Course } = models
 
       return {
         teaching: await Course.populate(course, [
           { path: 'groups.teaching.supervisor', model: 'User' },
-        ]).then((a) => a.groups?.teaching || []),
+        ]).then(
+          (a) =>
+            a.groups?.teaching.map((g) => ({
+              ...g,
+              isSupervisor: g.supervisor._id.toString() === user.id,
+            })) || []
+        ),
         working: course.groups?.working || [],
       }
     },
+    hasAdvancedCompetencies(course, _args, _context, _info) {
+      return course.competencies.some((c) => c.category === 'advanced')
+    },
+    hasTeachingGroups(course, _args, _context, _info) {
+      return course.groups?.teaching?.length
+    },
+    hasWorkingGroups(course, _args, _context, _info) {
+      return course.groups?.working?.length
+    },
+    // Check whether the connected user has received an invitation for this course.
+    async hasReceivedInvitation(course, _args, { models, user }, _info) {
+      const { Registration } = models
+
+      const registration = await Registration.findOne({
+        course: course._id,
+        user: user.id,
+      }).lean()
+      return registration?.invitation === 'sent'
+    },
+    // Check whether the connected user has requested an invitation for this course.
     async hasRequestedInvitation(course, _args, { models, user }, _info) {
       const { Registration } = models
 
       const registration = await Registration.findOne({
         course: course._id,
         user: user.id,
-      })
+      }).lean()
       return registration?.invitation === 'requested'
     },
     isArchived(course, _args, _context, _info) {
@@ -332,15 +371,15 @@ const resolvers = {
       course = await Course.populate(course, [
         {
           path: 'competencies.competency',
-          select: 'code description name',
+          select: 'code description learningOutcomes name',
           model: 'Competency',
         },
         {
           path: 'coordinator',
-          select: '_id displayName username',
+          select: '_id username',
           model: 'User',
         },
-        { path: 'teachers', select: '_id displayName username', model: 'User' },
+        { path: 'teachers', select: '_id username', model: 'User' },
       ]).then((c) => c.toJSON())
 
       // Rename the 'id' field of the coordinator and teachers
@@ -494,78 +533,140 @@ const resolvers = {
       return null
     },
     async createCourse(_parent, args, { models, user }, _info) {
-      const { Competency, Course, User } = models
+      const { Competency, Course, Partner, User } = models
 
       // Clean up the optional args.
-      if (args.teachers?.length === 0) {
-        args.teachers = undefined
-      }
-      if (args.teachingGroups?.length === 0) {
-        args.teachingGroups = undefined
-      }
-      if (args.workingGroups?.length === 0) {
-        args.workingGroups = undefined
-      }
+      clean(args)
 
       // Create the course Mongoose object.
       const course = new Course(args)
       course.competencies = await Promise.all(
         args.competencies.map(async (c) => ({
           ...c,
-          competency: (await Competency.findOne({ code: c.competency }))?._id,
+          competency: (await Competency.exists({ code: c.competency }))?._id,
         }))
       )
       course.coordinator = user.id
       course.groups = {}
-      if (args.teachingGroups) {
+      if (args.groups?.teaching) {
         course.groups.teaching = await Promise.all(
-          args.teachingGroups.map(async (g) => ({
+          args.groups.teaching.map(async (g) => ({
             ...g,
-            supervisor: (await User.findOne({ username: g.supervisor }))?._id,
+            supervisor: (await User.exists({ username: g.supervisor }))?._id,
           }))
         )
       }
-      if (args.workingGroups) {
-        course.groups.working = args.workingGroups
+      if (args.groups?.working) {
+        course.groups.working = args.groups.working
       }
       if (!course.groups.teaching && !course.groups.working) {
         course.groups = undefined
       }
+      if (args.partners) {
+        course.partners = await Promise.all(
+          args.partners.map(async (p) => await Partner.exists({ code: p })?._id)
+        )
+      }
+      if (args.schedule?.length) {
+        course.schedule = args.schedule.reduce(
+          (schedule, event) => ({
+            ...schedule,
+            [event.name]: event.datetime,
+          }),
+          {}
+        )
+      }
       if (args.teachers) {
         course.teachers = await Promise.all(
-          args.teachers.map(async (t) => await User.findOne({ username: t }))
+          args.teachers.map(
+            async (t) => await User.exists({ username: t })?._id
+          )
         )
       }
       course.user = user.id
 
       // Save the course into the database.
       try {
-        await course.save()
-        return true
+        return await course.save()
       } catch (err) {
-        const formErrors = {}
-
-        switch (err.name) {
-          case 'MongoServerError':
-            switch (err.code) {
-              case 11000:
-                throw new UserInputError('EXISTING_CODE', {
-                  formErrors: {
-                    code: 'The specified code already exists',
-                  },
-                })
-            }
-            break
-
-          case 'ValidationError':
-            Object.keys(err.errors).forEach(
-              (e) => (formErrors[e] = err.errors[e].properties.message)
-            )
-            throw new UserInputError('VALIDATION_ERROR', { formErrors })
-        }
+        handleError(err)
       }
 
-      return false
+      return null
+    },
+    async editCourse(_parent, args, { models, user }, _info) {
+      const { Competency, Course, Partner, User } = models
+
+      // Retrieve the course to edit.
+      const course = await Course.findOne({ code: args.code })
+      if (!course || !isCoordinator(course, user)) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the course mongoose object.
+      for (const field of [
+        'colophon',
+        'description',
+        'field',
+        'language',
+        'load',
+        'name',
+        'span',
+        'tags',
+        'type',
+        'visibility',
+      ]) {
+        course[field] = args[field]
+      }
+      course.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: await Competency.exists({ code: c.competency }),
+        }))
+      )
+      course.groups = !args.groups ? undefined : {}
+      course.groups.teaching = !args.groups?.teaching
+        ? undefined
+        : await Promise.all(
+            args.groups.teaching.map(async (g) => ({
+              ...g,
+              supervisor: await User.exists({ username: g.supervisor }),
+            }))
+          )
+      if (!course.groups.teaching && !course.groups.working) {
+        course.groups = undefined
+      }
+      course.partners = !args.partners
+        ? undefined
+        : await Promise.all(
+            args.partners.map(async (p) => await Partner.exists({ code: p }))
+          )
+      course.schedule = !args.schedule
+        ? undefined
+        : args.schedule.reduce(
+            (schedule, event) => ({
+              ...schedule,
+              [event.name]: event.datetime,
+            }),
+            {}
+          )
+      course.teachers = !args.teachers
+        ? undefined
+        : await Promise.all(
+            args.teachers.map(async (t) => await User.exists({ username: t }))
+          )
+
+      // Save the course into the database.
+      try {
+        return await course.save()
+      } catch (err) {
+        handleError(err)
+      }
+
+      return null
     },
     async publishCourse(_parent, args, { models, user }, _info) {
       const { Course } = models
@@ -594,118 +695,6 @@ const resolvers = {
       }
 
       return null
-    },
-    async register(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
-
-      const course = await Course.findOne({ code: args.code })
-      if (!course) {
-        throw new UserInputError('Course not found.')
-      }
-
-      // Can only directly register to
-      // a published course with 'public' visibility.
-      if (
-        !course.published ||
-        course.archived ||
-        course.visibility !== 'public'
-      ) {
-        throw new UserInputError('REGISTRATION_FAILED')
-      }
-
-      // Coordinator and teacher cannot register to their own course.
-      if (isCoordinator(course, user) || isTeacher(course, user)) {
-        throw new UserInputError('REGISTRATION_FAILED')
-      }
-
-      // Can only register if it agrees with the schedule of the course.
-      const now = DateTime.now()
-      if (!canEnroll(course.schedule, now)) {
-        throw new UserInputError('REGISTRATION_FAILED')
-      }
-
-      // Check whether there is not already a registration.
-      const userId = user.id
-      const registration = await Registration.findOne({
-        course: course._id,
-        user: userId,
-      })
-      if (registration) {
-        throw new UserInputError('REGISTRATION_FAILED')
-      }
-
-      // Create a new registration for the user.
-      try {
-        const registration = new Registration({
-          course: course._id,
-          date: now,
-          user: userId,
-        })
-        course.registration = await registration.save()
-
-        return course
-      } catch (err) {
-        console.log(err)
-      }
-
-      throw new UserInputError('REGISTRATION_FAILED')
-    },
-    async requestInvitation(_parent, args, { models, user }, _info) {
-      const { Course, Registration } = models
-
-      const course = await Course.findOne({ code: args.code })
-      if (!course) {
-        throw new UserInputError('Course not found.')
-      }
-
-      // Can only request an invitation for
-      // a published course with 'invite-only' visibility.
-      if (
-        !course.published ||
-        course.archived ||
-        course.visibility !== 'invite-only'
-      ) {
-        throw new UserInputError('INVITATION_REQUEST_FAILED')
-      }
-
-      // Coordinator and teacher cannot request an invitation for their own course.
-      if (isCoordinator(course, user) || isTeacher(course, user)) {
-        throw new UserInputError('INVITATION_REQUEST_FAILED')
-      }
-
-      // Can only request an invitation if it agrees with the schedule of the course.
-      const now = DateTime.now()
-      if (!canEnroll(course.schedule, now)) {
-        throw new UserInputError('INVITATION_REQUEST_FAILED')
-      }
-
-      // Check whether there is not already a registration.
-      const userId = user.id
-      const registration = await Registration.findOne({
-        course: course._id,
-        user: userId,
-      })
-      if (registration) {
-        throw new UserInputError('INVITATION_REQUEST_FAILED')
-      }
-
-      // Create a new registration for the user,
-      // representing the invitation request.
-      try {
-        const registration = new Registration({
-          course: course._id,
-          date: now,
-          invitation: 'requested',
-          user: userId,
-        })
-        course.registration = await registration.save()
-
-        return course
-      } catch (err) {
-        console.log(err)
-      }
-
-      throw new UserInputError('INVITATION_REQUEST_FAILED')
     },
   },
 }

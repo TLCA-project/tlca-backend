@@ -1,12 +1,30 @@
 import { UserInputError } from 'apollo-server'
 import mongoose from 'mongoose'
 
+import { cleanArray, cleanField, cleanString } from '../lib/utils.js'
+
+// Clean up the optional args related to a competency.
+function clean(args) {
+  cleanArray(args, 'learningOutcomes', 'partners', 'tags')
+  cleanField(args, 'public')
+  cleanString(args, 'description')
+
+  // Clean up learning outcomes.
+  for (const learningOutcome of args.learningOutcomes) {
+    cleanField(learningOutcome, 'takes')
+  }
+}
+
 const resolvers = {
   CompetencyType: {
     PRACTICAL: 'practical',
     THEORETICAL: 'theoretical',
   },
   Competency: {
+    // Retrieve whether this competency has learning outcomes.
+    hasLearningOutcomes(competency, _args, _context, _info) {
+      return competency.learningOutcomes?.length
+    },
     // Retrieve whether this competency has been created by the connected user.
     isOwner(competency, _args, { user }, _info) {
       const creator = competency.user
@@ -86,20 +104,9 @@ const resolvers = {
       const { Competency, Partner } = models
 
       // Clean up the optional args.
-      if (args.description?.trim().length === 0) {
-        args.description = undefined
-      }
-      if (args.partners?.length === 0) {
-        args.partners = undefined
-      }
-      if (!args.public) {
-        args.public = undefined
-      }
-      if (args.tags?.length === 0) {
-        args.tags = undefined
-      }
+      clean(args)
 
-      // Create the competency Mongoose object.
+      // Create the competency mongoose object.
       const competency = new Competency(args)
       if (args.partners) {
         competency.partners = await Promise.all(
@@ -114,19 +121,85 @@ const resolvers = {
       try {
         return await competency.save()
       } catch (err) {
+        const formErrors = {}
+
         switch (err.name) {
-          case 'MongoServerError': {
+          case 'MongoServerError':
             switch (err.code) {
-              case 11000: {
+              case 11000:
                 throw new UserInputError('EXISTING_CODE', {
                   formErrors: {
                     code: 'The specified code already exists',
                   },
                 })
-              }
             }
             break
-          }
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
+
+        return false
+      }
+    },
+    // Edit an existing competency from the specified parameters.
+    async editCompetency(_parent, args, { models, user }, _info) {
+      const { Competency, Partner } = models
+
+      // Retrieve the competency to edit.
+      const competency = await Competency.findOne({ code: args.code })
+      if (!competency || competency.user.toString() !== user.id) {
+        throw new UserInputError('COMPETENCY_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the competency mongoose object.
+      for (const field of [
+        'description',
+        'learningOutcomes',
+        'name',
+        'public',
+        'tags',
+        'type',
+      ]) {
+        competency[field] = args[field]
+      }
+      competency.partners = !args.partners
+        ? undefined
+        : await Promise.all(
+            args.partners.map(
+              async (p) => (await Partner.exists({ code: p }).lean())?._id
+            )
+          )
+
+      // Save the competency into the database.
+      try {
+        return await competency.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'MongoServerError':
+            switch (err.code) {
+              case 11000:
+                throw new UserInputError('EXISTING_CODE', {
+                  formErrors: {
+                    code: 'The specified code already exists',
+                  },
+                })
+            }
+            break
+
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
 
         return false

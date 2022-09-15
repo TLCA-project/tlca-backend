@@ -51,6 +51,7 @@ const typeDefs = gql`
     category: CompetencyCategory!
     competency: Competency!
     subcategory: String
+    useLearningOutcomes: Boolean
   }
 
   type CourseGroup {
@@ -67,6 +68,7 @@ const typeDefs = gql`
   }
 
   type CourseTeachingGroup {
+    isSupervisor: Boolean
     name: String
     supervisor: User!
   }
@@ -86,7 +88,11 @@ const typeDefs = gql`
     description: String!
     field: String
     groups: CourseGroup @auth(requires: TEACHER)
+    hasAdvancedCompetencies: Boolean
+    hasReceivedInvitation: Boolean @auth
     hasRequestedInvitation: Boolean @auth
+    hasTeachingGroups: Boolean @auth(requires: TEACHER)
+    hasWorkingGroups: Boolean @auth(requires: TEACHER)
     isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
     isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
@@ -118,11 +124,20 @@ const typeDefs = gql`
     competency: ID!
     category: CompetencyCategory!
     subcategory: String
+    useLearningOutcomes: Boolean
   }
 
   input CourseGroupInput {
     teaching: [CourseTeachingGroupInput!]
     working: [CourseWorkingGroupInput!]
+  }
+
+  input CourseLoadInput {
+    ects: Int
+    practice: Int
+    theory: Int
+    type: CourseLoadType
+    weekload: Int
   }
 
   input CourseTeachingGroupInput {
@@ -134,23 +149,52 @@ const typeDefs = gql`
     name: String
   }
 
+  input EventInput {
+    datetime: DateTime
+    name: String
+  }
+
   extend type Mutation {
     archiveCourse(archiveCode: String, code: ID!): Course
       @auth(requires: TEACHER)
     cloneCourse(cloneCode: String, code: ID!): Course @auth(requires: TEACHER)
     createCourse(
       code: String!
+      colophon: String
       competencies: [CourseCompetencyInput!]!
+      description: String!
+      field: String
       groups: CourseGroupInput
+      language: String
+      load: CourseLoadInput
       name: String!
+      partners: [ID!]
+      schedule: [EventInput!]
+      span: Int
+      tags: [String!]
+      teachers: [ID!]
+      type: CourseType!
+      visibility: Visibility
+    ): Course @auth(requires: TEACHER)
+    editCourse(
+      code: String!
+      colophon: String
+      competencies: [CourseCompetencyInput!]
       description: String
+      field: String
+      groups: CourseGroupInput
+      language: String
+      load: CourseLoadInput
+      name: String
+      partners: [ID!]
+      schedule: [EventInput!]
+      span: Int
+      tags: [String!]
       teachers: [ID!]
       type: CourseType
       visibility: Visibility
     ): Course @auth(requires: TEACHER)
     publishCourse(code: ID!): Course @auth(requires: TEACHER)
-    register(code: ID!): Course @auth(requires: STUDENT)
-    requestInvitation(code: ID!): Course @auth
   }
 `
 

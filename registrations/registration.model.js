@@ -11,11 +11,9 @@ const RegistrationSchema = new Schema({
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.',
   },
   date: {
     type: Date,
-    default: Date.now,
   },
   email: {
     type: String,
@@ -35,12 +33,19 @@ const RegistrationSchema = new Schema({
     type: String,
     enum: ['requested', 'sent'],
   },
-  stars: {
-    basic: {
+  invitationDate: {
+    type: Date,
+  },
+  program: {
+    type: Schema.ObjectId,
+    ref: 'Program',
+  },
+  progress: {
+    advanced: {
       type: Number,
       default: 0,
     },
-    advanced: {
+    basic: {
       type: Number,
       default: 0,
     },

@@ -5,9 +5,29 @@ const { model, Schema } = mongoose
 
 const CompetencySchema = new Schema(
   {
+    checklist: {
+      private: {
+        type: [String],
+        default: undefined,
+      },
+      public: {
+        type: [String],
+        default: undefined,
+      },
+    },
     competency: {
       type: Schema.ObjectId,
       ref: 'Competency',
+      required: true,
+    },
+    learningOutcomes: {
+      type: [Number],
+      default: undefined,
+    },
+    maxStars: {
+      type: Number,
+      min: 1,
+      max: 5,
     },
     optional: {
       type: Boolean,
@@ -16,6 +36,26 @@ const CompetencySchema = new Schema(
       type: Number,
       min: 1,
       max: 3,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
+const PhaseSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+    },
+    competencies: {
+      type: [CompetencySchema],
+      default: undefined,
     },
   },
   {
@@ -36,14 +76,18 @@ const AssessmentSchema = new Schema({
       'project',
       'quiz',
     ],
-    required: 'Category cannot be blank.',
+    required: true,
   },
   clonedFrom: {
     type: Schema.ObjectId,
     ref: 'Assessment',
   },
+  closed: {
+    type: Boolean,
+  },
   code: {
     type: String,
+    trim: true,
   },
   competencies: {
     type: [CompetencySchema],
@@ -52,7 +96,7 @@ const AssessmentSchema = new Schema({
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.',
+    required: true,
   },
   created: {
     type: Date,
@@ -60,18 +104,59 @@ const AssessmentSchema = new Schema({
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.',
+    required: true,
   },
   end: {
     type: Date,
   },
+  event: {
+    type: Schema.ObjectId,
+    ref: 'Event',
+  },
+  hidden: {
+    type: Boolean,
+  },
+  incremental: {
+    type: Boolean,
+  },
+  instances: {
+    type: Number,
+  },
+  load: {
+    defense: {
+      type: Number,
+      min: 0,
+    },
+    grading: {
+      type: Number,
+      min: 0,
+    },
+    work: {
+      type: Number,
+      min: 0,
+    },
+  },
   name: {
     type: String,
+    required: true,
     trim: true,
-    required: 'Name cannot be blank.',
+  },
+  oralDefense: {
+    type: Boolean,
+  },
+  phased: {
+    type: Boolean,
+  },
+  phases: {
+    type: [PhaseSchema],
+    default: undefined,
   },
   start: {
     type: Date,
+  },
+  takes: {
+    type: Number,
+    min: 1,
   },
   user: {
     type: Schema.ObjectId,
@@ -80,21 +165,32 @@ const AssessmentSchema = new Schema({
 })
 
 AssessmentSchema.pre('validate', function (next) {
-  // There must be at least one mandatory competency.
-  if (!this.competencies.some((c) => !c.optional)) {
-    this.invalidate('competencies', 'MISSING_MANDATORY_COMPETENCY')
-  }
-
-  // Competencies must be all different.
-  const codes = new Set()
+  // Check whether competencies have been defined.
   if (
-    this.competencies.some(
-      (c) =>
-        codes.size ===
-        codes.add((c.competency._id || c.competency).toString()).size
-    )
+    (!this.phased && !this.competencies?.length) ||
+    (this.phased &&
+      !this.phases?.length &&
+      !this.phases.every((p) => p.competencies?.length))
   ) {
-    this.invalidate('competencies', 'DUPLICATE_COMPETENCIES')
+    this.invalidate('competencies', 'MISSING_COMPETENCIES')
+  }
+  // Perform several checks on the competencies
+  else {
+    const phases = !this.phased ? [this] : this.phases
+    for (const [i, phase] of phases.entries()) {
+      // Competencies must be all different.
+      const codes = new Set()
+      if (
+        phase.competencies.some(
+          (c) =>
+            codes.size ===
+            codes.add((c.competency._id || c.competency).toString()).size
+        )
+      ) {
+        const prefix = this.phased ? `phases-${i}-` : ''
+        this.invalidate(`${prefix}competencies`, 'DUPLICATE_COMPETENCIES')
+      }
+    }
   }
 
   // Start date must be strictly before end date,

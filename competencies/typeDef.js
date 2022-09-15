@@ -6,12 +6,19 @@ const typeDefs = gql`
     THEORETICAL
   }
 
+  type LearningOutcome {
+    name: String!
+    takes: Int
+  }
+
   type Competency {
     code: ID!
     created: DateTime! @auth(requires: ADMIN)
     description: String
+    hasLearningOutcomes: Boolean
     isOwner: Boolean @auth
     isPublic: Boolean
+    learningOutcomes: [LearningOutcome!]
     name: String!
     partners: [Partner!]
     tags: [String!]
@@ -24,10 +31,26 @@ const typeDefs = gql`
     competency(code: ID!): Competency @auth
   }
 
+  input LearningOutcomeInput {
+    name: String!
+    takes: Int
+  }
+
   extend type Mutation {
     createCompetency(
       code: String!
       description: String
+      learningOutcomes: [LearningOutcomeInput!]
+      name: String!
+      partners: [ID!]
+      public: Boolean
+      tags: [String!]
+      type: CompetencyType
+    ): Competency @auth(requires: TEACHER)
+    editCompetency(
+      code: ID!
+      description: String
+      learningOutcomes: [LearningOutcomeInput!]
       name: String!
       partners: [ID!]
       public: Boolean

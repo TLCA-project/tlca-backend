@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { getPathCompleter } from '../lib/models.js'
+import { getBannerPathCleaner, getPathCompleter } from '../lib/models.js'
 
 const { model, Schema } = mongoose
 
@@ -91,10 +91,31 @@ const ProgramSchema = new Schema({
   },
 })
 
+ProgramSchema.pre('validate', function (next) {
+  // There must be at least one mandatory course.
+  if (!this.courses.some((c) => !c.optional)) {
+    this.invalidate('courses', 'MISSING_MANDATORY_COURSE')
+  }
+
+  // Courses must be all different.
+  const codes = new Set()
+  if (
+    this.courses.some(
+      (c) =>
+        codes.size === codes.add((c.course._id || c.course).toString()).size
+    )
+  ) {
+    this.invalidate('courses', 'DUPLICATE_COURSES')
+  }
+
+  next()
+})
+
 // Generate full path for the banner.
 ProgramSchema.post(
   ['aggregate', 'find', 'findOne'],
   getPathCompleter('programs')
 )
+ProgramSchema.pre('save', getBannerPathCleaner)
 
 export default model('Program', ProgramSchema)

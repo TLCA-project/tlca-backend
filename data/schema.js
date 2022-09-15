@@ -9,6 +9,8 @@ import {
 import assessments from '../assessments/index.js'
 import competencies from '../competencies/index.js'
 import courses from '../courses/index.js'
+import evaluations from '../evaluations/index.js'
+import events from '../events/index.js'
 import files from '../files/index.js'
 import partners from '../partners/index.js'
 import programs from '../programs/index.js'
@@ -30,6 +32,8 @@ let schema = makeExecutableSchema({
     assessments.typeDef,
     competencies.typeDef,
     courses.typeDef,
+    evaluations.typeDef,
+    events.typeDef,
     files.typeDef,
     partners.typeDef,
     programs.typeDef,
@@ -40,6 +44,8 @@ let schema = makeExecutableSchema({
     assessments.resolvers,
     competencies.resolvers,
     courses.resolvers,
+    evaluations.resolvers,
+    events.resolvers,
     files.resolvers,
     partners.resolvers,
     programs.resolvers,
@@ -53,6 +59,8 @@ const models = {
   Assessment: assessments.Assessment,
   Competency: competencies.Competency,
   Course: courses.Course,
+  Evaluation: evaluations.Evaluation,
+  Event: events.Event,
   Partner: partners.Partner,
   Program: programs.Program,
   Registration: registrations.Registration,

@@ -1,15 +1,16 @@
 {
   "name": "tlca-backend",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Backend server of the TLCA platform",
   "repository": "https://github.com/TLCA-project/tlca-backend.git",
-  "author": "Sébastien Combéfis <sebastien@combefis.be>",
+  "author": "AEI Consulting <info@aei-consulting.be>",
   "license": "AGPL-3.0-only",
   "private": false,
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "cross-env NODE_ENV=development node index.js",
+    "start:prod": "cross-env NODE_ENV=production node index.js",
     "test": "cross-env NODE_ENV=test mocha",
     "watch": "cross-env NODE_ENV=development nodemon index.js -e js",
     "lint:js": "eslint --ext \".js\" --ignore-path .gitignore .",
@@ -19,6 +20,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@bugsnag/js": "^7.17.0",
     "@graphql-tools/schema": "^8.5.0",
     "apollo-server": "^3.10.0",
     "check-password-strength": "^2.0.5",
@@ -30,6 +32,7 @@
     "jsonwebtoken": "^8.5.1",
     "luxon": "^3.0.1",
     "mongoose": "^6.4.4",
+    "nodemailer": "^6.7.8",
     "path": "^0.12.7",
     "validator": "^13.7.0"
   },

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { getPathCompleter } from '../lib/models.js'
+import { getBannerPathCleaner, getPathCompleter } from '../lib/models.js'
 
 const { Schema } = mongoose
 
@@ -16,6 +16,9 @@ const CompetencySchema = new Schema(
     subcategory: {
       type: String,
       trim: true,
+    },
+    useLearningOutcomes: {
+      type: Boolean,
     },
   },
   {
@@ -286,9 +289,7 @@ CourseSchema.pre('validate', function (next) {
 })
 
 // Generate full path for the banner.
-const pathCompleter = getPathCompleter('courses')
-CourseSchema.post('aggregate', pathCompleter)
-CourseSchema.post('find', pathCompleter)
-CourseSchema.post('findOne', pathCompleter)
+CourseSchema.post(['aggregate', 'find', 'findOne'], getPathCompleter('courses'))
+CourseSchema.pre('save', getBannerPathCleaner)
 
 export default mongoose.model('Course', CourseSchema)
