@@ -102,7 +102,9 @@ const resolvers = {
       // Retrieve all the partners.
       const partners = []
       courses.forEach((c) => {
-        partners.push(...c.partners)
+        if (c.partners?.length) {
+          partners.push(...c.partners)
+        }
       })
 
       return await Partner.find({ _id: { $in: partners } }).lean()
