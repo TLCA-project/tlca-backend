@@ -9,6 +9,7 @@ const typeDefs = gql`
 
   enum ProgramType {
     TRAINING
+    UNIT
     UPROGRAM
   }
 

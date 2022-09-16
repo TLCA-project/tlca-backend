@@ -29,13 +29,13 @@ const ProgramSchema = new Schema({
   code: {
     type: String,
     trim: true,
-    required: 'Code cannot be blank.',
+    required: true,
     unique: true,
   },
   coordinator: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: 'Coordinator cannot be blank.',
+    required: true,
   },
   courses: {
     type: [CourseSchema],
@@ -47,7 +47,7 @@ const ProgramSchema = new Schema({
   },
   description: {
     type: String,
-    required: 'Description cannot be blank.',
+    required: true,
   },
   field: {
     type: String,
@@ -60,7 +60,7 @@ const ProgramSchema = new Schema({
   name: {
     type: String,
     trim: true,
-    required: 'Name cannot be blank.',
+    required: true,
   },
   published: {
     type: Date,
@@ -76,9 +76,8 @@ const ProgramSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['training', 'uprogram'],
-    default: 'training',
-    required: 'Type cannot be blank.',
+    enum: ['training', 'unit', 'uprogram'],
+    default: 'unit',
   },
   user: {
     type: Schema.ObjectId,
