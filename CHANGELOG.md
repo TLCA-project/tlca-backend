@@ -1,3 +1,17 @@
+## 1.1.1 (2022-09-17)
+
+### Features
+
+- **assessments:** create an assessment instance (coordinator)
+- **assessments:** define a provider and its config for an assessment (coordinator)
+- **assessments:** get the details of an assessment instance (coordinator)
+
+- **programs:** create a program with the 'unit' type (coordinator)
+
+### Bug Fixes
+
+- **courses:** made 'isArchived' and 'isPublished' fields available to students
+
 ## 1.1.0 (2022-09-15)
 
 ### Features
