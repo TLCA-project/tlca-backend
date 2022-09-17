@@ -93,9 +93,9 @@ const typeDefs = gql`
     hasRequestedInvitation: Boolean @auth
     hasTeachingGroups: Boolean @auth(requires: TEACHER)
     hasWorkingGroups: Boolean @auth(requires: TEACHER)
-    isArchived: Boolean @auth(requires: [ADMIN, TEACHER])
+    isArchived: Boolean @auth(requires: [ADMIN, STUDENT, TEACHER])
     isCoordinator: Boolean @auth(requires: TEACHER)
-    isPublished: Boolean @auth(requires: [ADMIN, TEACHER])
+    isPublished: Boolean @auth(requires: [ADMIN, STUDENT, TEACHER])
     isRegistered: Boolean @auth(requires: STUDENT)
     isTeacher: Boolean @auth(requires: TEACHER)
     language: String
