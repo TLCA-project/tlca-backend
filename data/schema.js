@@ -20,6 +20,7 @@ import users from '../users/index.js'
 const typeDefs = gql`
   scalar Date
   scalar DateTime
+  scalar JSONObject
 
   type Query
   type Mutation
@@ -57,6 +58,7 @@ schema = authDirectiveTransformer(schema)
 
 const models = {
   Assessment: assessments.Assessment,
+  AssessmentInstance: assessments.AssessmentInstance,
   Competency: competencies.Competency,
   Course: courses.Course,
   Evaluation: evaluations.Evaluation,
