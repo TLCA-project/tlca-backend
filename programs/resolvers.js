@@ -44,6 +44,7 @@ const resolvers = {
   },
   ProgramType: {
     TRAINING: 'training',
+    UNIT: 'unit',
     UPROGRAM: 'uprogram',
   },
   ProgramVisibility: {

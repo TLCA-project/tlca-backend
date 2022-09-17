@@ -1,4 +1,4 @@
-import { UserInputError } from 'apollo-server'
+import { AuthenticationError, UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 
 import { isCoordinator, isTeacher } from '../lib/courses.js'
@@ -102,6 +102,36 @@ const resolvers = {
       return 'single_take'
     },
   },
+  AssessmentInstance: {
+    // Retrieve the resolved data for this assessment instance.
+    async content(assessmentInstance, _args, { models }, _info) {
+      const { Assessment } = models
+
+      // Retrieve the assessment associated to this assessment instance.
+      const assessment = await Assessment.findOne(
+        { _id: assessmentInstance.assessment },
+        'provider providerConfig'
+      ).lean()
+
+      const content = {}
+
+      switch (assessment.provider) {
+        case 'tfq':
+          content.questions = assessmentInstance.data.questions.map((q, i) =>
+            q.select.map(
+              (j) => assessment.providerConfig.questions[i].pool[j].question
+            )
+          )
+          break
+      }
+
+      return content
+    },
+    // Retrieve the 'id' of the assessment instance from the MongoDB '_id'.
+    id(assessmentInstance, _args, _context, _info) {
+      return assessmentInstance._id.toString()
+    },
+  },
   Query: {
     // Retrieve one given assessment given its 'id'.
     async assessment(_parent, args, { models }, _info) {
@@ -113,6 +143,19 @@ const resolvers = {
       }
 
       return assessment
+    },
+    // Retrieve one given assessment instance given its 'id'.
+    async assessmentInstance(_parent, args, { models }, _info) {
+      const { AssessmentInstance } = models
+
+      const assessmentInstance = await AssessmentInstance.findOne({
+        _id: args.id,
+      }).lean()
+      if (!assessmentInstance) {
+        throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+      }
+
+      return assessmentInstance
     },
     // Retrieve all the assessments
     // that are available to the connected user.
@@ -295,6 +338,68 @@ const resolvers = {
             )
             throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
+      }
+
+      return null
+    },
+    // Create an instance of an assessment (for those with an external provider).
+    async createAssessmentInstance(_parent, args, { models, user }, _info) {
+      const { Assessment, AssessmentInstance, Registration } = models
+
+      // Retrieve the assessment for which to create an instance.
+      const assessment = await Assessment.findOne(
+        { _id: args.id },
+        '_id closed course hidden provider providerConfig'
+      ).lean()
+      if (
+        !assessment ||
+        assessment.closed ||
+        assessment.hidden ||
+        !assessment.provider
+      ) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Check whether the user is registered to the course
+      const isRegistered = await Registration.exists({
+        course: assessment.course,
+        user: user.id,
+      })
+      if (!isRegistered) {
+        throw new AuthenticationError('NOT_AUTHORISED')
+      }
+
+      // TODO: the logic to create the instance.
+      const data = {}
+
+      switch (assessment.provider) {
+        case 'tfq':
+          data.questions = []
+          for (const question of assessment.providerConfig.questions) {
+            const select = []
+            while (select.length < question.select) {
+              const r = Math.floor(Math.random() * question.pool.length)
+              if (select.indexOf(r) === -1) {
+                select.push(r)
+              }
+            }
+            data.questions.push({ select })
+          }
+          break
+      }
+
+      // Create the assessment instance Mongoose object.
+      const assessmentInstance = new AssessmentInstance({
+        assessment: assessment._id,
+        data,
+        user: user.id,
+      })
+
+      // Save the assessment instance into the database.
+      try {
+        return await assessmentInstance.save()
+      } catch (err) {
+        console.log(err)
       }
 
       return null

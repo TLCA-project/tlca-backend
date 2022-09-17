@@ -60,13 +60,22 @@ const typeDefs = gql`
     load: AssessmentLoad
     name: String!
     phases: [AssessmentPhase!]
+    provider: String @auth(requires: [STUDENT, TEACHER])
+    providerConfig: JSONObject @auth(requires: TEACHER)
     start: DateTime
     takes: Int
     type: AssessmentType
   }
 
+  type AssessmentInstance {
+    data: JSONObject @auth(requires: TEACHER)
+    content: JSONObject @auth(requires: STUDENT)
+    id: ID!
+  }
+
   extend type Query {
     assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
+    assessmentInstance(id: ID!): AssessmentInstance @auth(requires: STUDENT)
     assessments(
       courseCode: ID
       limit: Int
@@ -120,6 +129,8 @@ const typeDefs = gql`
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
+    createAssessmentInstance(id: ID!): AssessmentInstance
+      @auth(requires: STUDENT)
     editAssessment(
       category: AssessmentCategory!
       code: String

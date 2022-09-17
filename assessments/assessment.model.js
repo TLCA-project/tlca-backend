@@ -151,6 +151,13 @@ const AssessmentSchema = new Schema({
     type: [PhaseSchema],
     default: undefined,
   },
+  provider: {
+    type: String,
+    enum: ['tfq'],
+  },
+  providerConfig: {
+    type: Object,
+  },
   start: {
     type: Date,
   },
