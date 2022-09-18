@@ -89,7 +89,7 @@ const resolvers = {
   Mutation: {
     // Create a new evaluation from the specified assessment and learner.
     async createEvaluation(_parent, args, { models, user }, _info) {
-      const { Assessment, Evaluation, User } = models
+      const { Assessment, Competency, Evaluation, User } = models
 
       // Clean up the optional args.
       if (!args.comment?.trim().length) {
@@ -117,6 +117,12 @@ const resolvers = {
       // Create the evaluation Mongoose object.
       const evaluation = new Evaluation(args)
       evaluation.assessment = assessment._id
+      evaluation.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: await Competency.exists({ code: c.competency }),
+        }))
+      )
       evaluation.course = assessment.course._id
       evaluation.evaluator = user.id
       evaluation.user = learner._id
