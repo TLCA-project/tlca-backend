@@ -3,6 +3,37 @@ import mongoose from 'mongoose'
 
 const { model, Schema } = mongoose
 
+const CompetencySchema = new Schema(
+  {
+    checklist: {
+      private: {
+        type: [Boolean],
+        default: undefined,
+      },
+      public: {
+        type: [Boolean],
+        default: undefined,
+      },
+    },
+    competency: {
+      type: Schema.ObjectId,
+      ref: 'Competency',
+      required: true,
+    },
+    learningOutcomes: {
+      type: [Boolean],
+      default: undefined,
+    },
+    selected: {
+      type: Boolean,
+    },
+  },
+  {
+    id: false,
+    _id: false,
+  }
+)
+
 const EvaluationSchema = new Schema({
   assessment: {
     type: Schema.ObjectId,
@@ -13,12 +44,7 @@ const EvaluationSchema = new Schema({
     type: String,
   },
   competencies: {
-    type: [
-      {
-        type: Schema.ObjectId,
-        ref: 'Competency',
-      },
-    ],
+    type: [CompetencySchema],
     default: undefined,
   },
   course: {
