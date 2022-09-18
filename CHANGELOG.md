@@ -1,3 +1,9 @@
+## 1.1.2 (2022-09-18)
+
+### Features
+
+- **evaluations:** define acquired competencies with associated stars or LOs (teacher)
+
 ## 1.1.1 (2022-09-17)
 
 ### Features
