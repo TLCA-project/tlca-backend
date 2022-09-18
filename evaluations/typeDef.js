@@ -6,13 +6,27 @@ const typeDefs = gql`
     UNPUBLISHED
   }
 
+  type EvaluationChecklist {
+    private: [Boolean!] @auth(requires: TEACHER)
+    public: [Boolean!]
+  }
+
+  type EvaluationCompetency {
+    checklist: EvaluationChecklist
+    competency: Competency!
+    learningOutcomes: [Boolean!]
+    selected: Boolean
+  }
+
   type Evaluation {
     assessment: Assessment!
+    competencies: [EvaluationCompetency!]
     course: Course!
     date: DateTime!
     id: ID!
     isPublished: Boolean
     learner: User!
+    note: String
     published: DateTime
     status: EvaluationStatus @auth(requires: TEACHER)
   }
@@ -28,12 +42,26 @@ const typeDefs = gql`
     ): [Evaluation!]! @auth(requires: TEACHER)
   }
 
+  input EvaluationChecklistInput {
+    private: [Boolean!]
+    public: [Boolean!]
+  }
+
+  input EvaluationCompetencyInput {
+    checklist: EvaluationChecklistInput
+    competency: ID!
+    learningOutcomes: [Boolean!]
+    selected: Boolean
+  }
+
   extend type Mutation {
     createEvaluation(
       assessment: ID!
       comment: String
+      competencies: [EvaluationCompetencyInput!]
       evalDate: DateTime
       learner: ID!
+      note: String
     ): Evaluation @auth(requires: TEACHER)
     publishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }
