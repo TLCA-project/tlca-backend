@@ -14,7 +14,6 @@ const AssessmentInstanceSchema = new Schema({
   },
   data: {
     type: Object,
-    required: true,
   },
   user: {
     type: Schema.ObjectId,

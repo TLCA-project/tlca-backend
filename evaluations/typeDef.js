@@ -24,6 +24,7 @@ const typeDefs = gql`
     course: Course!
     date: DateTime!
     id: ID!
+    instance: AssessmentInstance
     isPublished: Boolean
     learner: User!
     note: String
@@ -60,6 +61,7 @@ const typeDefs = gql`
       comment: String
       competencies: [EvaluationCompetencyInput!]
       evalDate: DateTime
+      instance: ID
       learner: ID!
       note: String
     ): Evaluation @auth(requires: TEACHER)

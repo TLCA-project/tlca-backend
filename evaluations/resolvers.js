@@ -49,7 +49,12 @@ const resolvers = {
     async evaluation(_parent, args, { models }, _info) {
       const { Evaluation } = models
 
-      const evaluation = await Evaluation.findOne({ _id: args.id }).lean()
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+        .populate({
+          path: 'competencies.competency',
+          model: 'Competency',
+        })
+        .lean()
       if (!evaluation) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
@@ -84,12 +89,18 @@ const resolvers = {
       }
 
       return await Evaluation.find(filter)
+        .populate({
+          path: 'competencies.competency',
+          model: 'Competency',
+        })
+        .lean()
     },
   },
   Mutation: {
     // Create a new evaluation from the specified assessment and learner.
     async createEvaluation(_parent, args, { models, user }, _info) {
-      const { Assessment, Competency, Evaluation, User } = models
+      const { Assessment, AssessmentInstance, Competency, Evaluation, User } =
+        models
 
       // Clean up the optional args.
       if (!args.comment?.trim().length) {
@@ -114,21 +125,45 @@ const resolvers = {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
-      // Create the evaluation Mongoose object.
-      const evaluation = new Evaluation(args)
-      evaluation.assessment = assessment._id
-      evaluation.competencies = await Promise.all(
-        args.competencies.map(async (c) => ({
-          ...c,
-          competency: await Competency.exists({ code: c.competency }),
-        }))
-      )
-      evaluation.course = assessment.course._id
-      evaluation.evaluator = user.id
-      evaluation.user = learner._id
+      // Retrieve the assessment instance or create a new one.
+      let instance = null
+      if (args.instance) {
+        // Retrieve the assessment instance for which to create an evaluation.
+        instance = await AssessmentInstance.findOne(
+          { _id: args.instance },
+          '_id assessment'
+        )
+        if (
+          !instance ||
+          instance.assessment.toString() !== assessment._id.toString()
+        ) {
+          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+        }
+      } else {
+        instance = new AssessmentInstance({
+          assessment: assessment._id,
+          user: learner._id,
+        })
+      }
 
       // Save the evaluation into the database.
       try {
+        await instance.save()
+
+        // Create the evaluation Mongoose object.
+        const evaluation = new Evaluation(args)
+        evaluation.assessment = assessment._id
+        evaluation.competencies = await Promise.all(
+          args.competencies.map(async (c) => ({
+            ...c,
+            competency: await Competency.exists({ code: c.competency }),
+          }))
+        )
+        evaluation.course = assessment.course._id
+        evaluation.evaluator = user.id
+        evaluation.instance = instance._id
+        evaluation.user = learner._id
+
         return await evaluation.save()
       } catch (err) {
         const formErrors = {}

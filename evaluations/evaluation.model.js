@@ -38,7 +38,7 @@ const EvaluationSchema = new Schema({
   assessment: {
     type: Schema.ObjectId,
     ref: 'Assessment',
-    required: 'Assessment cannot be blank.',
+    required: true,
   },
   comment: {
     type: String,
@@ -50,7 +50,7 @@ const EvaluationSchema = new Schema({
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
-    required: 'Course cannot be blank.',
+    required: true,
   },
   date: {
     type: Date,
@@ -62,7 +62,11 @@ const EvaluationSchema = new Schema({
   evaluator: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: 'Evaluator cannot be blank.',
+    required: true,
+  },
+  instance: {
+    type: Schema.ObjectId,
+    ref: 'AssessmentInstance',
   },
   published: {
     type: Date,
@@ -70,7 +74,7 @@ const EvaluationSchema = new Schema({
   user: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: 'User cannot be blank.',
+    required: true,
   },
 })
 

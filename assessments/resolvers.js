@@ -127,7 +127,11 @@ const resolvers = {
 
       return content
     },
-    // Retrieve the 'id' of the assessment instance from the MongoDB '_id'.
+    // Retrieve the 'datetime' creation of this assessment instance.
+    datetime(assessmentInstance, _args, _context, _info) {
+      return assessmentInstance.created
+    },
+    // Retrieve the 'id' of this assessment instance.
     id(assessmentInstance, _args, _context, _info) {
       return assessmentInstance._id.toString()
     },
@@ -156,6 +160,56 @@ const resolvers = {
       }
 
       return assessmentInstance
+    },
+    // Retrieve all the assessment instances
+    // that are available to the connected user.
+    async assessmentInstances(_parent, args, { models, user }, _info) {
+      const { Assessment, AssessmentInstance, User } = models
+
+      // Only 'admin' can access all the assessment instances
+      // without specifying an assessment or a learner.
+      if (!args.assessment && !hasRole(user, 'admin')) {
+        throw new UserInputError('MISSING_FILTER')
+      }
+
+      const filter = {}
+
+      // Filter by assessment, only possible if the connected user
+      // is either the coordinator or a teacher or is registered
+      // to the course associated to the assessment
+      if (args.assessment) {
+        const assessment = await Assessment.findOne(
+          {
+            _id: args.assessment,
+          },
+          '_id course'
+        ).lean()
+        if (!assessment) {
+          throw new UserInputError('ASSESSMENT_NOT_FOUND')
+        }
+
+        filter.assessment = assessment._id
+
+        // Filter by learner, only possible if the connected user
+        // is either the coordinator or a teacher
+        // of the course associated to the assessment
+        // and the learner is registered to it
+        if (args.learner) {
+          const learner = await User.findOne(
+            {
+              username: args.learner,
+            },
+            '_id'
+          ).lean()
+          if (!learner) {
+            throw new UserInputError('USER_NOT_FOUND')
+          }
+
+          filter.user = learner._id
+        }
+      }
+
+      return await AssessmentInstance.find(filter).lean()
     },
     // Retrieve all the assessments
     // that are available to the connected user.
