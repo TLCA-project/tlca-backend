@@ -65,6 +65,7 @@ const models = {
   Event: events.Event,
   Partner: partners.Partner,
   Program: programs.Program,
+  ProgressHistory: evaluations.ProgressHistory,
   Registration: registrations.Registration,
   User: users.User,
 }

@@ -1,3 +1,5 @@
+import Bugsnag from '@bugsnag/js'
+
 import { UserInputError } from 'apollo-server'
 
 import { isCoordinator, isEvaluator } from '../lib/courses.js'
@@ -180,27 +182,131 @@ const resolvers = {
       return null
     },
     async publishEvaluation(_parent, args, { models, user }, _info) {
-      const { Evaluation } = models
+      const { Evaluation, ProgressHistory } = models
 
-      const evaluation = await Evaluation.findOne({ _id: args.id }).populate({
-        path: 'course',
-        select: 'coordinator',
-        model: 'Course',
-      })
+      const evaluation = await Evaluation.findOne({ _id: args.id }).populate([
+        {
+          path: 'assessment',
+          select: 'competencies incremental takes',
+          model: 'Assessment',
+        },
+        {
+          path: 'course',
+          select: 'coordinator',
+          model: 'Course',
+        },
+      ])
       if (!evaluation) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
 
       // Can only publish an evaluation that is not published yet
-      // and only its evaluator or the associated course coordinator can publish it..
+      // and only its evaluator or the associated course coordinator can publish it.
       if (
         evaluation.published ||
-        !(
-          isEvaluator(evaluation, user) ||
-          isCoordinator(evaluation.course, user)
-        )
+        (!isEvaluator(evaluation, user) &&
+          !isCoordinator(evaluation.course, user))
       ) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Retrieve all the existing evaluations for the same assessment instance.
+      const evaluations = await Evaluation.find(
+        {
+          instance: evaluation.instance,
+          published: { $exists: true },
+        },
+        '_id competencies date evalDate published'
+      ).lean()
+      if (!evaluations) {
         throw new UserInputError('EVALUATION_PUBLICATION_FAILED')
+      }
+
+      // Sort the published evaluations by evaluation date.
+      evaluations.forEach((e) => {
+        if (!e.evalDate) {
+          e.evalDate = e.date
+        }
+      })
+      evaluations.sort((a, b) => (a.evalDate > b.evalDate ? 1 : -1))
+
+      // Check the constraints related to the assessment.
+      const assessment = evaluation.assessment
+      if (
+        (!assessment.incremental && evaluations.length > 0) ||
+        (assessment.incremental &&
+          assessment.takes &&
+          evaluations.length >= assessment.takes)
+      ) {
+        throw new UserInputError('INVALID_EVALUATION')
+      }
+
+      // Check the constraints related to the acquired competencies.
+      const competencies = {}
+      assessment.competencies.forEach((c) => {
+        competencies[c.competency.toString()] = {
+          learningOutcomes: c.learningOutcomes?.map((_) => false),
+          selected: false,
+          stars: c.stars,
+        }
+      })
+      evaluations.forEach((e) => {
+        e.competencies.forEach((c) => {
+          const competency = competencies[c.competency.toString()]
+
+          competency.selected ||= c.selected
+
+          if (c.learningOutcomes?.length) {
+            for (let i = 0; i < competency.learningOutcomes.length; i++) {
+              competency.learningOutcomes[i] ||= c.learningOutcomes[i]
+            }
+          }
+        })
+      })
+
+      for (const c of evaluation.competencies) {
+        const competency = competencies[c.competency.toString()]
+
+        if (c.selected && competency.selected) {
+          throw new UserInputError('INVALID_EVALUATION')
+        }
+
+        if (c.learningOutcomes?.length) {
+          if (
+            c.learningOutcomes.some(
+              (lo, i) => lo && competency.learningOutcomes[i]
+            )
+          ) {
+            throw new UserInputError('INVALID_EVALUATION')
+          }
+        }
+      }
+
+      // Create the progress history.
+      const history = []
+      for (const {
+        competency,
+        learningOutcomes,
+        selected,
+      } of evaluation.competencies) {
+        const progressHistory = new ProgressHistory({
+          competency,
+          date: evaluation.evalDate ?? evaluation.date,
+          evaluation: evaluation._id,
+          stars: competencies[competency.toString()].stars,
+          user: evaluation.user,
+        })
+
+        // Save stars or learning outcomes history.
+        if ((!learningOutcomes || !learningOutcomes.length) && selected) {
+          progressHistory.stars = competencies[competency.toString()].stars
+        } else if (learningOutcomes?.length) {
+          progressHistory.learningOutcomes = learningOutcomes
+        }
+
+        if (progressHistory.stars || progressHistory.learningOutcomes) {
+          history.push(progressHistory)
+        }
       }
 
       // Publish the evaluation.
@@ -208,9 +314,10 @@ const resolvers = {
 
       try {
         // Save the evaluation into the database.
+        await Promise.all(history.map(async (h) => h.save()))
         return await evaluation.save()
       } catch (err) {
-        console.log(err)
+        Bugsnag.notify(err)
       }
 
       return null
