@@ -1,3 +1,20 @@
+## 1.1.3 (2022-09-21)
+
+### Features
+
+- **admin:** resend the confirmation email to a given user (admin)
+
+- **evaluations:** delete an non-published evaluation (teacher)
+
+- **users:** edit a user (user)
+- **users:** resend the confirmation email (user)
+
+### Improvements
+
+- added assessment instances objects in the database model in order to keep track of the different instances of the same assessment
+- added progress history objects in the database model in order to keep track of either the stars or the learning outcomes progress of students
+- made the 'isClosed' field of assessments visible to students
+
 ## 1.1.2 (2022-09-18)
 
 ### Features
