@@ -3,6 +3,37 @@ import { AuthenticationError, UserInputError } from 'apollo-server'
 import jwt from 'jsonwebtoken'
 import { DateTime } from 'luxon'
 
+import { cleanString } from '../lib/utils.js'
+
+// Clean up the optional args related to a user.
+function clean(args) {
+  cleanString(args, 'firstName', 'lastName')
+}
+
+// Handle errors resulting from the creation or edit of a program.
+function handleError(err) {
+  const formErrors = {}
+
+  switch (err.name) {
+    case 'MongoServerError':
+      switch (err.code) {
+        case 11000:
+          throw new UserInputError('EXISTING_USERNAME', {
+            formErrors: {
+              code: 'The specified username already exists',
+            },
+          })
+      }
+      break
+
+    case 'ValidationError':
+      Object.keys(err.errors).forEach(
+        (e) => (formErrors[e] = err.errors[e].properties.message)
+      )
+      throw new UserInputError('VALIDATION_ERROR', { formErrors })
+  }
+}
+
 // Create the access and the refresh tokens.
 function getTokens(user, env) {
   const userinfo = { id: user._id, roles: user.roles }
@@ -78,6 +109,17 @@ const resolvers = {
       // Return all the selected field except '_id'
       return (({ _id, ...rest }) => rest)(loggedUser)
     },
+    // Retrieve one given user given its 'username'.
+    async user(_parent, args, { models, user: loggedUser }, _info) {
+      const { User } = models
+
+      const user = await User.findOne({ username: args.username }).lean()
+      if (!user || user._id.toString() !== loggedUser.id) {
+        throw new UserInputError('USER_NOT_FOUND')
+      }
+
+      return user
+    },
     async users(_parent, args, { models }, _info) {
       const { User } = models
 
@@ -121,6 +163,33 @@ const resolvers = {
         return true
       } catch (err) {
         Bugsnag.notify(err)
+      }
+
+      return false
+    },
+    // Confirm this user, that is validate his/her email address.
+    async editUser(_parent, args, { models, user: loggedUser }, _info) {
+      const { User } = models
+
+      // Retrieve the user to return.
+      const user = await User.findOne({ username: args.username })
+      if (!user || user._id.toString() !== loggedUser.id) {
+        throw new UserInputError('USER_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the user mongoose object.
+      for (const field of ['firstName', 'lastName']) {
+        user[field] = args[field]
+      }
+
+      // Save the user into the database.
+      try {
+        return await user.save()
+      } catch (err) {
+        handleError(err)
       }
 
       return false
