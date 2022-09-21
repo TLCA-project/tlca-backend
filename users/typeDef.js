@@ -11,7 +11,7 @@ const typeDefs = gql`
     email: String!
     firstName: String
     id: ID!
-    isValidated: Boolean
+    isConfirmed: Boolean
     lastName: String
     roles: [String!]!
     username: ID!
@@ -24,11 +24,12 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    confirmAccount(username: String!, emailConfirmationToken: String!): Boolean!
     refreshToken(token: String!): SignInResponse!
+    resendConfirmationEmail(username: String!): Boolean!
     signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
     signUp(email: String!, password: String!): Boolean
-    validateAccount(username: String!, emailConfirmationToken: String!): Boolean
   }
 `
 

@@ -23,6 +23,22 @@ function getTokens(user, env) {
   }
 }
 
+// Send a confirmation email to a user.
+async function sendConfirmationEmail(smtpTransport, user) {
+  const confirmationURL = `https://www.tlca.eu/profiles/${user.username}/${user.emailConfirmationToken}`
+
+  await smtpTransport.sendMail({
+    to: user.email,
+    from: 'sebastien@combefis.be',
+    subject: '[TLCA] Email address confirmation',
+    html:
+      '<p>Hello,</p>' +
+      '<p>Thank you for creating an account on the TLCA platform.</p>' +
+      `<p>In order to be able to connect on the platform, you first need to confirm your email address. You can do so by visiting the following page:</p><p><a href="${confirmationURL}">${confirmationURL}</a></p>` +
+      '<p>The TLCA team</p>',
+  })
+}
+
 const resolvers = {
   User: {
     displayName(user, _args, _context, _info) {
@@ -30,6 +46,15 @@ const resolvers = {
         return user.username
       }
       return `${user.firstName} ${user.lastName}`
+    },
+    // Retrieve the 'id' of this user.
+    id(user, _args, _context, _info) {
+      return user.id
+    },
+    // Retrieve whether this user is confirmed or not
+    // (meaning that his/her email address is valid).
+    isConfirmed(user, _args, _context, _info) {
+      return !user.emailConfirmationToken
     },
   },
   Query: {
@@ -61,15 +86,45 @@ const resolvers = {
       const limit = args.limit ?? undefined
 
       // Retrieve all the users satisfying the conditions defined hereabove.
-      const users = await User.find({}, null, { skip, limit })
-      return users.map((user) => ({
-        ...user.toJSON(),
-        id: user.id,
-        isValidated: !user.emailConfirmationToken,
-      }))
+      return await User.find({}, null, { skip, limit }).lean()
     },
   },
   Mutation: {
+    // Confirm this user, that is validate his/her email address.
+    async confirmAccount(_parent, args, { models }, _info) {
+      const { User } = models
+
+      // Retrieve the user to confirm.
+      const user = await User.findOne(
+        { username: args.username },
+        'emailConfirmationToken emailConfirmationTokenExpires'
+      )
+      if (
+        !user ||
+        user.emailConfirmationToken !== args.emailConfirmationToken ||
+        DateTime.now() > DateTime.fromISO(user.emailConfirmationTokenExpires)
+      ) {
+        throw new UserInputError('INVALID_CONFIRMATION_TOKEN')
+      }
+      if (!user.emailConfirmationToken) {
+        throw new UserInputError('ALREADY_CONFIRMED')
+      }
+
+      // Confirm the user.
+      user.emailConfirmationToken = undefined
+      user.emailConfirmationTokenExpires = undefined
+      user.emailConfirmed = new Date()
+
+      // Save the user into the database.
+      try {
+        await user.save()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
     async refreshToken(_parent, args, { env, models }, _info) {
       const { User } = models
 
@@ -107,6 +162,43 @@ const resolvers = {
       }
 
       return null
+    },
+    // Resend a confirmation email to this user.
+    async resendConfirmationEmail(
+      _parent,
+      args,
+      { models, smtpTransport },
+      _info
+    ) {
+      const { User } = models
+
+      // Retrieve the user to confirm.
+      const user = await User.findOne(
+        { username: args.username },
+        'email emailConfirmationToken emailConfirmationTokenExpires username'
+      )
+      if (!user) {
+        throw new UserInputError('USER_NOT_FOUND')
+      }
+      if (!user.emailConfirmationToken) {
+        throw new UserInputError('ALREADY_CONFIRMED')
+      }
+
+      // Generate a new confirmation token.
+      user.updateEmail(user.email)
+
+      // Send a confirmation email to the new user.
+      await sendConfirmationEmail(smtpTransport, user)
+
+      // Save the user into the database.
+      try {
+        await user.save()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
     },
     async signIn(_parent, args, { env, models }, _info) {
       const { User } = models
@@ -182,17 +274,7 @@ const resolvers = {
         await user.save()
 
         // Send a confirmation email to the new user.
-        const validationURL = `https://www.tlca.eu/profiles/${user.username}/${user.emailConfirmationToken}`
-        await smtpTransport.sendMail({
-          to: args.email,
-          from: 'sebastien@combefis.be',
-          subject: '[TLCA] Email address validation',
-          html:
-            '<p>Hello,</p>' +
-            '<p>Thank you for creating an account on the TLCA platform.</p>' +
-            `<p>In order to be able to connect on the platform, you first need to validate your email address. You can do so by visiting the following page:</p><p><a href="${validationURL}">${validationURL}</a></p>` +
-            '<p>The TLCA team</p>',
-        })
+        await sendConfirmationEmail(smtpTransport, user)
 
         // Update any invitation that have been sent to this user.
         const registrations = await Registration.find({ email: args.email })
@@ -228,38 +310,6 @@ const resolvers = {
           }
         }
 
-        Bugsnag.notify(err)
-      }
-
-      return false
-    },
-    // Validate the email address of a new account.
-    async validateAccount(_parent, args, { models }, _info) {
-      const { User } = models
-
-      // Retrieve the user to validate.
-      const user = await User.findOne(
-        { username: args.username },
-        'emailConfirmationToken emailConfirmationTokenExpires'
-      )
-      if (
-        !user ||
-        user.emailConfirmationToken !== args.emailConfirmationToken ||
-        DateTime.now() > DateTime.fromISO(user.emailConfirmationTokenExpires)
-      ) {
-        throw new UserInputError('USER_NOT_FOUND')
-      }
-
-      // Validate the user.
-      user.emailConfirmationToken = undefined
-      user.emailConfirmationTokenExpires = undefined
-      user.emailConfirmed = new Date()
-
-      // Save the user into the database.
-      try {
-        await user.save()
-        return true
-      } catch (err) {
         Bugsnag.notify(err)
       }
 
