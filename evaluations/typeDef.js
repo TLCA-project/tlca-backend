@@ -65,6 +65,7 @@ const typeDefs = gql`
       learner: ID!
       note: String
     ): Evaluation @auth(requires: TEACHER)
+    deleteEvaluation(id: ID!): Boolean @auth(requires: TEACHER)
     publishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }
 `

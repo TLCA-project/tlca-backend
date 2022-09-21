@@ -181,6 +181,54 @@ const resolvers = {
 
       return null
     },
+    // Delete an existing evaluation.
+    async deleteEvaluation(_parent, args, { models, user }, _info) {
+      const { AssessmentInstance, Evaluation } = models
+
+      // Retrieve the evaluation to delete.
+      const evaluation = await Evaluation.findOne(
+        { _id: args.id },
+        '_id evaluator instance published'
+      )
+      if (!evaluation || !isEvaluator(evaluation, user)) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // If the evaluation is already published,
+      // must delete all the progress history elements as well.
+      if (evaluation.published) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // If the evaluation if the only one of its instance
+      // must delete the instance as well.
+      const instance = await AssessmentInstance.findOne(
+        {
+          _id: evaluation.instance,
+        },
+        '_id'
+      )
+      if (!instance) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+      const evaluationsNb = await Evaluation.countDocuments({
+        instance: instance._id,
+      })
+
+      // Delete the evaluation.
+      try {
+        if (evaluationsNb === 1) {
+          await instance.delete()
+        }
+
+        await evaluation.delete()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
     async publishEvaluation(_parent, args, { models, user }, _info) {
       const { Evaluation, ProgressHistory } = models
 
