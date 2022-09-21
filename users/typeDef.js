@@ -11,24 +11,27 @@ const typeDefs = gql`
     email: String!
     firstName: String
     id: ID!
-    isValidated: Boolean
+    isConfirmed: Boolean
     lastName: String
     roles: [String!]!
     username: ID!
   }
 
   extend type Query {
-    me: User
-    users(offset: Int, limit: Int): [User!]! @auth(requires: ADMIN)
     colleagues: [User!]! @auth(requires: TEACHER)
+    me: User
+    user(username: ID!): User @auth
+    users(offset: Int, limit: Int): [User!]! @auth(requires: ADMIN)
   }
 
   extend type Mutation {
+    confirmAccount(username: String!, emailConfirmationToken: String!): Boolean!
+    editUser(firstName: String, lastName: String, username: ID): User @auth
     refreshToken(token: String!): SignInResponse!
+    resendConfirmationEmail(username: String!): Boolean!
     signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
     signUp(email: String!, password: String!): Boolean
-    validateAccount(username: String!, emailConfirmationToken: String!): Boolean
   }
 `
 
