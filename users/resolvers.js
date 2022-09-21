@@ -80,7 +80,7 @@ const resolvers = {
     },
     // Retrieve the 'id' of this user.
     id(user, _args, _context, _info) {
-      return user.id
+      return user._id
     },
     // Retrieve whether this user is confirmed or not
     // (meaning that his/her email address is valid).
