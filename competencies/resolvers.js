@@ -10,8 +10,10 @@ function clean(args) {
   cleanString(args, 'description')
 
   // Clean up learning outcomes.
-  for (const learningOutcome of args.learningOutcomes) {
-    cleanField(learningOutcome, 'takes')
+  if (args.learningOutcomes) {
+    for (const learningOutcome of args.learningOutcomes) {
+      cleanField(learningOutcome, 'takes')
+    }
   }
 }
 
