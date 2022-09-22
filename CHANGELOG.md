@@ -1,13 +1,17 @@
+## 1.1.4 (2022-09-22)
+
+### Bug Fixes
+
+- **competencies:** fixed competency cleaning function for competencies without learning outcomes
+
 ## 1.1.3 (2022-09-21)
 
 ### Features
 
-- **admin:** resend the confirmation email to a given user (admin)
-
 - **evaluations:** delete an non-published evaluation (teacher)
 
 - **users:** edit a user (user)
-- **users:** resend the confirmation email (user)
+- **users:** resend the confirmation email (user and admin)
 
 ### Improvements
 
