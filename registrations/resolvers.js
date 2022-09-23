@@ -435,7 +435,7 @@ const resolvers = {
           isTeacher(course, user) ||
           !canEnroll(course, now)
         ) {
-          throw new UserInputError('INVITATION_REQUEST_FAILED')
+          throw new UserInputError('INVITATION_REQUEST')
         }
 
         // Check whether there is not already a registration.

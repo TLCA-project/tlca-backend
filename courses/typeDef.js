@@ -94,10 +94,10 @@ const typeDefs = gql`
     hasTeachingGroups: Boolean @auth(requires: TEACHER)
     hasWorkingGroups: Boolean @auth(requires: TEACHER)
     isArchived: Boolean @auth(requires: [ADMIN, STUDENT, TEACHER])
-    isCoordinator: Boolean @auth(requires: TEACHER)
+    isCoordinator: Boolean @auth
     isPublished: Boolean @auth(requires: [ADMIN, STUDENT, TEACHER])
-    isRegistered: Boolean @auth(requires: STUDENT)
-    isTeacher: Boolean @auth(requires: TEACHER)
+    isRegistered: Boolean @auth
+    isTeacher: Boolean @auth
     language: String
     load: CourseLoad
     name: String!
