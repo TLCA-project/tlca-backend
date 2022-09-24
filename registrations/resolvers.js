@@ -38,6 +38,87 @@ const resolvers = {
     id(registration, _args, _context, _info) {
       return registration._id.toString()
     },
+    // Retrieve the progress of the user associated to this registration.
+    async progress(registration, _args, { models }, _info) {
+      const { Competency, Course, ProgressHistory } = models
+
+      // Retrieve the course associated to this registration.
+      const course = await Course.findOne(
+        { _id: registration.course },
+        'competencies'
+      ).lean()
+      if (!course) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Retrieve the progress histories for each competency.
+      const competencies = await Promise.all(
+        course.competencies.map(async (c) => ({
+          category: c.category,
+          competency: await Competency.findOne({ _id: c.competency }).lean(),
+          history: await ProgressHistory.find(
+            {
+              competency: c.competency,
+            },
+            'learningOutcomes stars'
+          ).lean(),
+          useLearningOutcomes: !!c.useLearningOutcomes,
+        }))
+      )
+
+      // Computes the progress for each competency.
+      competencies.forEach((competency) => {
+        // If stars are used, compute the total number of acquired stars.
+        if (!competency.useLearningOutcomes) {
+          competency.stars = competency.history.reduce(
+            (stars, c) => stars + c.stars,
+            0
+          )
+
+          competency.progress = Math.min(competency.stars, 5)
+        }
+        // If learning outcomes are used, compute the total number
+        // of acquired learning outcomes, for each one of them
+        else {
+          competency.learningOutcomes = competency.history.reduce(
+            (learningOutcomes, c) => {
+              c.learningOutcomes.forEach((i) => (learningOutcomes[i] += 1))
+              return learningOutcomes
+            },
+            Array.from(
+              { length: competency.competency.learningOutcomes?.length },
+              () => 0
+            )
+          )
+
+          const sumAcquired = competency.learningOutcomes.reduce(
+            (acc, n) => acc + n,
+            0
+          )
+          const totalToAcquire = competency.competency.learningOutcomes.reduce(
+            (acc, lo) => acc + (lo.takes ?? 1),
+            0
+          )
+          competency.progress = Math.trunc((5 * sumAcquired) / totalToAcquire)
+        }
+      })
+
+      const basic = competencies.filter((c) => c.category === 'basic')
+      const advanced = competencies.filter((c) => c.category === 'advanced')
+
+      return {
+        advanced: Math.trunc(
+          (advanced.reduce((acc, c) => acc + c.progress, 0) /
+            (advanced.length * 5)) *
+            100
+        ),
+        basic: Math.trunc(
+          (basic.reduce((acc, c) => acc + c.progress, 0) / (basic.length * 5)) *
+            100
+        ),
+        competencies,
+      }
+    },
   },
   Query: {
     async registration(_parent, args, { models, user }, _info) {

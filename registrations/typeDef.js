@@ -6,9 +6,17 @@ const typeDefs = gql`
     SENT
   }
 
+  type CompetencyProgress {
+    competency: Competency!
+    learningOutcomes: [Int!]
+    progress: Int!
+    stars: Int
+  }
+
   type Progress {
     advanced: Int
     basic: Int!
+    competencies: [CompetencyProgress!]
   }
 
   type Registration {

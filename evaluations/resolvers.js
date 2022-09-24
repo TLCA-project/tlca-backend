@@ -289,13 +289,14 @@ const resolvers = {
         throw new UserInputError('INVALID_EVALUATION')
       }
 
-      // Check the constraints related to the acquired competencies.
+      // Build the history of validated competencies and learning outcomes.
       const competencies = {}
       assessment.competencies.forEach((c) => {
         competencies[c.competency.toString()] = {
-          learningOutcomes: c.learningOutcomes?.map((_) => false),
-          selected: false,
+          acquiredLearningOutcomes: c.learningOutcomes?.map((_) => false),
           stars: c.stars,
+          learningOutcomes: c.learningOutcomes,
+          selected: false,
         }
       })
       evaluations.forEach((e) => {
@@ -305,13 +306,14 @@ const resolvers = {
           competency.selected ||= c.selected
 
           if (c.learningOutcomes?.length) {
-            for (let i = 0; i < competency.learningOutcomes.length; i++) {
-              competency.learningOutcomes[i] ||= c.learningOutcomes[i]
+            for (let i = 0; i < c.learningOutcomes.length; i++) {
+              competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
             }
           }
         })
       })
 
+      // Check the constraints related to the acquired competencies.
       for (const c of evaluation.competencies) {
         const competency = competencies[c.competency.toString()]
 
@@ -322,7 +324,7 @@ const resolvers = {
         if (c.learningOutcomes?.length) {
           if (
             c.learningOutcomes.some(
-              (lo, i) => lo && competency.learningOutcomes[i]
+              (lo, i) => lo && competency.acquiredLearningOutcomes[i]
             )
           ) {
             throw new UserInputError('INVALID_EVALUATION')
@@ -341,17 +343,23 @@ const resolvers = {
           competency,
           date: evaluation.evalDate ?? evaluation.date,
           evaluation: evaluation._id,
-          stars: competencies[competency.toString()].stars,
           user: evaluation.user,
         })
 
-        // Save stars or learning outcomes history.
+        // Save stars history if the competency has been selected.
         if ((!learningOutcomes || !learningOutcomes.length) && selected) {
           progressHistory.stars = competencies[competency.toString()].stars
-        } else if (learningOutcomes?.length) {
+        }
+        // Save learning outcomes history if at least one has been selected.
+        else if (learningOutcomes?.some((lo) => lo)) {
           progressHistory.learningOutcomes = learningOutcomes
+            .map((lo, i) =>
+              lo ? competencies[competency.toString()].learningOutcomes[i] : -1
+            )
+            .filter((e) => e !== -1)
         }
 
+        // Add the history element.
         if (progressHistory.stars || progressHistory.learningOutcomes) {
           history.push(progressHistory)
         }
