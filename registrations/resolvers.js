@@ -75,7 +75,8 @@ const resolvers = {
             0
           )
 
-          competency.progress = Math.min(competency.stars, 5)
+          competency.innerProgress = Math.min(competency.stars, 5)
+          competency.progress = competency.innerProgress
         }
         // If learning outcomes are used, compute the total number
         // of acquired learning outcomes, for each one of them
@@ -99,7 +100,8 @@ const resolvers = {
             (acc, lo) => acc + (lo.takes ?? 1),
             0
           )
-          competency.progress = Math.trunc((5 * sumAcquired) / totalToAcquire)
+          competency.innerProgress = (5 * sumAcquired) / totalToAcquire
+          competency.progress = Math.trunc(20 * competency.innerProgress)
         }
       })
 
@@ -108,12 +110,13 @@ const resolvers = {
 
       return {
         advanced: Math.trunc(
-          (advanced.reduce((acc, c) => acc + c.progress, 0) /
+          (advanced.reduce((acc, c) => acc + c.innerProgress, 0) /
             (advanced.length * 5)) *
             100
         ),
         basic: Math.trunc(
-          (basic.reduce((acc, c) => acc + c.progress, 0) / (basic.length * 5)) *
+          (basic.reduce((acc, c) => acc + c.innerProgress, 0) /
+            (basic.length * 5)) *
             100
         ),
         competencies,
