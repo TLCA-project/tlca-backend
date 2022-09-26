@@ -106,7 +106,7 @@ const typeDefs = gql`
     registration: Registration @auth
     registrations: [Registration!] @auth(requires: TEACHER)
     schedule: [Event!]
-    status: CourseStatus @auth(requires: [ADMIN, TEACHER])
+    status: CourseStatus @auth(requires: [ADMIN, STUDENT, TEACHER])
     span: Int
     tags: [String!]
     teachers: [User!]
