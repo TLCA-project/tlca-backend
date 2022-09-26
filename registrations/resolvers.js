@@ -376,6 +376,54 @@ const resolvers = {
 
       return null
     },
+    // Delete a registration.
+    async deleteRegistration(_parent, args, { models, user }, _info) {
+      const { Course, Registration } = models
+
+      // Retrieve the registration to delete.
+      const registration = await Registration.findOne(
+        { _id: args.id },
+        'course'
+      )
+      if (!registration) {
+        throw new UserInputError('REGISTRATION_NOT_FOUND')
+      }
+
+      // Retrieve the course associated to the registration.
+      const course = await Course.findOne(
+        { _id: registration.course },
+        'archived coordinator published'
+      ).lean()
+      if (!course) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Only the coordinator can delete a registration
+      // for a course with the 'published' status.
+      if (
+        !isCoordinator(course, user) ||
+        !course.published ||
+        course.archived
+      ) {
+        throw new UserInputError('REGISTRATION_DELETE')
+      }
+
+      // If the registration is confirmed, need to delete all the information
+      // associated to the learner and related to the registration
+      if (!registration.invitation) {
+        // TODO: delete everything related to the confirmed registration
+        throw new UserInputError('UPCOMING_FEATURE')
+      }
+
+      try {
+        await registration.delete()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
     // Register to a given course, as a user.
     async register(_parent, args, { models, user }, _info) {
       const { Course, Registration } = models
