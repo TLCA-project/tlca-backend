@@ -59,6 +59,7 @@ const resolvers = {
           history: await ProgressHistory.find(
             {
               competency: c.competency,
+              user: registration.user,
             },
             'learningOutcomes stars'
           ).lean(),
