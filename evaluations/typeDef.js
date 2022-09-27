@@ -40,7 +40,7 @@ const typeDefs = gql`
       learner: ID
       offset: Int
       limit: Int
-    ): [Evaluation!]! @auth(requires: TEACHER)
+    ): [Evaluation!]! @auth(requires: [STUDENT, TEACHER])
   }
 
   input EvaluationChecklistInput {
