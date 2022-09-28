@@ -7,6 +7,7 @@ import { isCoordinator, isEvaluator } from '../lib/courses.js'
 const resolvers = {
   EvaluationStatus: {
     PUBLISHED: 'published',
+    SUBMITTED: 'submitted',
     UNPUBLISHED: 'unpublished',
   },
   Evaluation: {
@@ -65,30 +66,52 @@ const resolvers = {
     },
     // Retrieve all the evaluations
     // that are available to the connected user.
-    async evaluations(_parent, args, { models }, _info) {
-      const { Course, Evaluation, User } = models
+    async evaluations(_parent, args, { models, user }, _info) {
+      const { Course, Evaluation } = models
 
-      const filter = {}
-
-      if (args.assessment) {
-        filter.assessment = args.assessment
+      // Basically, can only retrieve evaluations whose:
+      // the connected user is the evaluator,
+      // or is the learner being evaluated,
+      // and that are published.
+      const filter = {
+        $and: [
+          {
+            $or: [
+              {
+                $and: [
+                  { published: { $exists: true } },
+                  { $or: [{ evaluator: user.id }, { user: user.id }] },
+                ],
+              },
+            ],
+          },
+        ],
       }
+
+      // Teachers can also access unpublished evaluations.
+      if (user.roles.includes('teacher')) {
+        filter.$and[0].$or.push({ publish: { $exists: false } })
+      }
+
+      // if (args.assessment) {
+      //   filter.assessment = args.assessment
+      // }
 
       if (args.courseCode) {
         const course = await Course.exists({ code: args.courseCode })
         if (!course) {
           throw new UserInputError('COURSE_NOT_FOUND')
         }
-        filter.course = course._id
+        filter.$and.push({ course: course._id })
       }
 
-      if (args.learner) {
-        const learner = await User.exists({ username: args.learner })
-        if (!learner) {
-          throw new UserInputError('LEARNER_NOT_FOUND')
-        }
-        filter.user = learner._id
-      }
+      // if (args.learner) {
+      //   const learner = await User.exists({ username: args.learner })
+      //   if (!learner) {
+      //     throw new UserInputError('LEARNER_NOT_FOUND')
+      //   }
+      //   filter.user = learner._id
+      // }
 
       return await Evaluation.find(filter)
         .populate({
@@ -197,7 +220,7 @@ const resolvers = {
       // If the evaluation is already published,
       // must delete all the progress history elements as well.
       if (evaluation.published) {
-        throw new UserInputError('NOT_AUTHORISED')
+        throw new UserInputError('UPCOMING_FEATURE')
       }
 
       // If the evaluation if the only one of its instance
@@ -289,13 +312,14 @@ const resolvers = {
         throw new UserInputError('INVALID_EVALUATION')
       }
 
-      // Check the constraints related to the acquired competencies.
+      // Build the history of validated competencies and learning outcomes.
       const competencies = {}
       assessment.competencies.forEach((c) => {
         competencies[c.competency.toString()] = {
-          learningOutcomes: c.learningOutcomes?.map((_) => false),
-          selected: false,
+          acquiredLearningOutcomes: c.learningOutcomes?.map((_) => false),
           stars: c.stars,
+          learningOutcomes: c.learningOutcomes,
+          selected: false,
         }
       })
       evaluations.forEach((e) => {
@@ -305,13 +329,14 @@ const resolvers = {
           competency.selected ||= c.selected
 
           if (c.learningOutcomes?.length) {
-            for (let i = 0; i < competency.learningOutcomes.length; i++) {
-              competency.learningOutcomes[i] ||= c.learningOutcomes[i]
+            for (let i = 0; i < c.learningOutcomes.length; i++) {
+              competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
             }
           }
         })
       })
 
+      // Check the constraints related to the acquired competencies.
       for (const c of evaluation.competencies) {
         const competency = competencies[c.competency.toString()]
 
@@ -322,7 +347,7 @@ const resolvers = {
         if (c.learningOutcomes?.length) {
           if (
             c.learningOutcomes.some(
-              (lo, i) => lo && competency.learningOutcomes[i]
+              (lo, i) => lo && competency.acquiredLearningOutcomes[i]
             )
           ) {
             throw new UserInputError('INVALID_EVALUATION')
@@ -341,17 +366,23 @@ const resolvers = {
           competency,
           date: evaluation.evalDate ?? evaluation.date,
           evaluation: evaluation._id,
-          stars: competencies[competency.toString()].stars,
           user: evaluation.user,
         })
 
-        // Save stars or learning outcomes history.
+        // Save stars history if the competency has been selected.
         if ((!learningOutcomes || !learningOutcomes.length) && selected) {
           progressHistory.stars = competencies[competency.toString()].stars
-        } else if (learningOutcomes?.length) {
+        }
+        // Save learning outcomes history if at least one has been selected.
+        else if (learningOutcomes?.some((lo) => lo)) {
           progressHistory.learningOutcomes = learningOutcomes
+            .map((lo, i) =>
+              lo ? competencies[competency.toString()].learningOutcomes[i] : -1
+            )
+            .filter((e) => e !== -1)
         }
 
+        // Add the history element.
         if (progressHistory.stars || progressHistory.learningOutcomes) {
           history.push(progressHistory)
         }

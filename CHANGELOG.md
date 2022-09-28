@@ -1,3 +1,23 @@
+## 1.1.5 (2022-09-28)
+
+### Features
+
+- **evaluations:** get the list of all the evaluations associated to a given course (student)
+
+- **registrations:** delete a registration that is not confirmed yet (coordinator)
+- **registrations:** get the progress associated to a registration for a given course (student and teacher)
+
+### Improvements
+
+- made it possible to resend the confirmation email from the email address (user)
+
+### Bug Fixes
+
+- **courses:** fix an issue for invitation requests for a course
+- **courses:** fix an issue with wrong field auth requirements
+
+- **evaluations:** fix an issue with wrong field auth requirements
+
 ## 1.1.4 (2022-09-22)
 
 ### Bug Fixes

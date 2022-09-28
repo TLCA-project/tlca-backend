@@ -8,6 +8,9 @@ const validateLocalStrategyEmail = function (email) {
 }
 
 const RegistrationSchema = new Schema({
+  closed: {
+    type: Boolean,
+  },
   course: {
     type: Schema.ObjectId,
     ref: 'Course',
@@ -43,11 +46,9 @@ const RegistrationSchema = new Schema({
   progress: {
     advanced: {
       type: Number,
-      default: 0,
     },
     basic: {
       type: Number,
-      default: 0,
     },
   },
   user: {
