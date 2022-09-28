@@ -219,7 +219,7 @@ const resolvers = {
       // If the evaluation is already published,
       // must delete all the progress history elements as well.
       if (evaluation.published) {
-        throw new UserInputError('NOT_AUTHORISED')
+        throw new UserInputError('UPCOMING_FEATURE')
       }
 
       // If the evaluation if the only one of its instance
