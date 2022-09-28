@@ -3,6 +3,7 @@ import { gql } from 'apollo-server'
 const typeDefs = gql`
   enum EvaluationStatus {
     PUBLISHED
+    SUBMITTED
     UNPUBLISHED
   }
 
@@ -20,6 +21,7 @@ const typeDefs = gql`
 
   type Evaluation {
     assessment: Assessment!
+    comment: String
     competencies: [EvaluationCompetency!]
     course: Course!
     date: DateTime!
@@ -27,13 +29,13 @@ const typeDefs = gql`
     instance: AssessmentInstance
     isPublished: Boolean
     learner: User!
-    note: String
+    note: String @auth(requires: TEACHER)
     published: DateTime
-    status: EvaluationStatus @auth(requires: TEACHER)
+    status: EvaluationStatus
   }
 
   extend type Query {
-    evaluation(id: ID!): Evaluation @auth(requires: TEACHER)
+    evaluation(id: ID!): Evaluation @auth(requires: [STUDENT, TEACHER])
     evaluations(
       assessment: ID
       courseCode: ID

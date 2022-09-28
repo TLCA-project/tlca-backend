@@ -7,6 +7,7 @@ import { isCoordinator, isEvaluator } from '../lib/courses.js'
 const resolvers = {
   EvaluationStatus: {
     PUBLISHED: 'published',
+    SUBMITTED: 'submitted',
     UNPUBLISHED: 'unpublished',
   },
   Evaluation: {
