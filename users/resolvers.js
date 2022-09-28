@@ -243,7 +243,12 @@ const resolvers = {
 
       // Retrieve the user to confirm.
       const user = await User.findOne(
-        { username: args.username },
+        {
+          $or: [
+            { email: args.usernameOrEmail },
+            { username: args.usernameOrEmail },
+          ],
+        },
         'email emailConfirmationToken emailConfirmationTokenExpires username'
       )
       if (!user) {

@@ -6,9 +6,17 @@ const typeDefs = gql`
     SENT
   }
 
+  type CompetencyProgress {
+    competency: Competency!
+    learningOutcomes: [Int!]
+    progress: Int!
+    stars: Int
+  }
+
   type Progress {
     advanced: Int
     basic: Int!
+    competencies: [CompetencyProgress!]
   }
 
   type Registration {
@@ -40,6 +48,7 @@ const typeDefs = gql`
   extend type Mutation {
     acceptInvitation(id: ID!): Registration @auth
     acceptInvitationRequest(id: ID!): Registration @auth(requires: TEACHER)
+    deleteRegistration(id: ID!): Boolean @auth(requires: TEACHER)
     register(courseCode: ID!): Registration @auth(requires: STUDENT)
     removeGroup(id: ID!, type: GroupType!): Registration
       @auth(requires: TEACHER)
