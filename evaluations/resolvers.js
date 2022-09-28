@@ -65,30 +65,52 @@ const resolvers = {
     },
     // Retrieve all the evaluations
     // that are available to the connected user.
-    async evaluations(_parent, args, { models }, _info) {
-      const { Course, Evaluation, User } = models
+    async evaluations(_parent, args, { models, user }, _info) {
+      const { Course, Evaluation } = models
 
-      const filter = {}
-
-      if (args.assessment) {
-        filter.assessment = args.assessment
+      // Basically, can only retrieve evaluations whose:
+      // the connected user is the evaluator,
+      // or is the learner being evaluated,
+      // and that are published.
+      const filter = {
+        $and: [
+          {
+            $or: [
+              {
+                $and: [
+                  { published: { $exists: true } },
+                  { $or: [{ evaluator: user.id }, { user: user.id }] },
+                ],
+              },
+            ],
+          },
+        ],
       }
+
+      // Teachers can also access unpublished evaluations.
+      if (user.roles.includes('teacher')) {
+        filter.$and[0].$or.push({ publish: { $exists: false } })
+      }
+
+      // if (args.assessment) {
+      //   filter.assessment = args.assessment
+      // }
 
       if (args.courseCode) {
         const course = await Course.exists({ code: args.courseCode })
         if (!course) {
           throw new UserInputError('COURSE_NOT_FOUND')
         }
-        filter.course = course._id
+        filter.$and.push({ course: course._id })
       }
 
-      if (args.learner) {
-        const learner = await User.exists({ username: args.learner })
-        if (!learner) {
-          throw new UserInputError('LEARNER_NOT_FOUND')
-        }
-        filter.user = learner._id
-      }
+      // if (args.learner) {
+      //   const learner = await User.exists({ username: args.learner })
+      //   if (!learner) {
+      //     throw new UserInputError('LEARNER_NOT_FOUND')
+      //   }
+      //   filter.user = learner._id
+      // }
 
       return await Evaluation.find(filter)
         .populate({
