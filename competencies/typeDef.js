@@ -12,10 +12,12 @@ const typeDefs = gql`
   }
 
   type Competency {
+    archived: DateTime @auth(requires: TEACHER)
     code: ID!
     created: DateTime! @auth(requires: ADMIN)
     description: String
     hasLearningOutcomes: Boolean
+    isArchived: Boolean @auth(requires: TEACHER)
     isOwner: Boolean @auth
     isPublic: Boolean
     learningOutcomes: [LearningOutcome!]
@@ -37,6 +39,7 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    archiveCompetency(code: ID!): Competency @auth(requires: TEACHER)
     createCompetency(
       code: String!
       description: String
