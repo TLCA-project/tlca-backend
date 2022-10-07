@@ -68,6 +68,9 @@ const EvaluationSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'AssessmentInstance',
   },
+  note: {
+    type: String,
+  },
   published: {
     type: Date,
   },

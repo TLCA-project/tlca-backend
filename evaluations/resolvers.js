@@ -131,6 +131,9 @@ const resolvers = {
       if (!args.comment?.trim().length) {
         delete args.comment
       }
+      if (!args.note?.trim().length) {
+        delete args.note
+      }
       if (!args.evalDate) {
         delete args.evalDate
       }
