@@ -100,6 +100,18 @@ const resolvers = {
         filter.$and[0].$or.push({ publish: { $exists: false } })
       }
 
+      // Students can also access unpublished evaluations
+      // for which they made a request.
+      if (user.roles.includes('student')) {
+        filter.$and[0].$or.push({
+          $and: [
+            { publish: { $exists: false } },
+            { requested: { $exists: true } },
+            { user: user.id },
+          ],
+        })
+      }
+
       // if (args.assessment) {
       //   filter.assessment = args.assessment
       // }
