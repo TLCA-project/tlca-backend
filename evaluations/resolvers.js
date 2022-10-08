@@ -1,13 +1,20 @@
 import Bugsnag from '@bugsnag/js'
 
-import { UserInputError } from 'apollo-server'
+import { AuthenticationError, UserInputError } from 'apollo-server'
 
 import { isCoordinator, isEvaluator } from '../lib/courses.js'
+import { cleanField, cleanString } from '../lib/utils.js'
+
+// Clean up the optional args related to an assessment.
+function clean(args) {
+  cleanField(args, 'evalDate')
+  cleanString(args, 'comment', 'note')
+}
 
 const resolvers = {
   EvaluationStatus: {
     PUBLISHED: 'published',
-    SUBMITTED: 'submitted',
+    REQUESTED: 'requested',
     UNPUBLISHED: 'unpublished',
   },
   Evaluation: {
@@ -93,6 +100,18 @@ const resolvers = {
         filter.$and[0].$or.push({ publish: { $exists: false } })
       }
 
+      // Students can also access unpublished evaluations
+      // for which they made a request.
+      if (user.roles.includes('student')) {
+        filter.$and[0].$or.push({
+          $and: [
+            { publish: { $exists: false } },
+            { requested: { $exists: true } },
+            { user: user.id },
+          ],
+        })
+      }
+
       // if (args.assessment) {
       //   filter.assessment = args.assessment
       // }
@@ -128,12 +147,7 @@ const resolvers = {
         models
 
       // Clean up the optional args.
-      if (!args.comment?.trim().length) {
-        delete args.comment
-      }
-      if (!args.evalDate) {
-        delete args.evalDate
-      }
+      clean(args)
 
       // Retrieve the learner for which to create an evaluation.
       const learner = await User.exists({ username: args.learner })
@@ -150,18 +164,15 @@ const resolvers = {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
-      // Retrieve the assessment instance or create a new one.
+      // Retrieve the assessment instance for which to create an evaluation
+      // or create a new one.
       let instance = null
       if (args.instance) {
-        // Retrieve the assessment instance for which to create an evaluation.
         instance = await AssessmentInstance.findOne(
-          { _id: args.instance },
+          { _id: args.instance, assessment: assessment._id, user: user.id },
           '_id assessment'
         )
-        if (
-          !instance ||
-          instance.assessment.toString() !== assessment._id.toString()
-        ) {
+        if (!instance) {
           throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
         }
       } else {
@@ -397,6 +408,90 @@ const resolvers = {
         return await evaluation.save()
       } catch (err) {
         Bugsnag.notify(err)
+      }
+
+      return null
+    },
+    // Request a new evaluation for the specified assessment.
+    async requestEvaluation(_parent, args, { models, user }, _info) {
+      const {
+        Assessment,
+        AssessmentInstance,
+        Competency,
+        Evaluation,
+        Registration,
+      } = models
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Retrieve the assessment for which to request an evaluation.
+      const assessment = await Assessment.findOne(
+        { _id: args.assessment },
+        '_id course'
+      ).lean()
+      if (!assessment) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Only possible if the connected user is registered
+      // to the course associated to the assessment.
+      const isRegistered = await Registration.exists({
+        course: assessment.course,
+        invitation: { $exists: false },
+        user: user.id,
+      })
+      if (!isRegistered) {
+        throw new AuthenticationError('NOT_AUTHORISED')
+      }
+
+      // Retrieve the assessment instance for which to create an evaluation
+      // or create a new one.
+      let instance = null
+      if (args.instance) {
+        instance = await AssessmentInstance.findOne(
+          { _id: args.instance, assessment: assessment._id, user: user.id },
+          '_id assessment'
+        )
+        if (!instance) {
+          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+        }
+      } else {
+        instance = new AssessmentInstance({
+          assessment: assessment._id,
+          user: user.id,
+        })
+      }
+
+      // Save the evaluation into the database.
+      try {
+        await instance.save()
+
+        // Create the evaluation Mongoose object.
+        const evaluation = new Evaluation(args)
+        evaluation.assessment = assessment._id
+        evaluation.competencies = await Promise.all(
+          args.competencies.map(async (c) => ({
+            ...c,
+            competency: await Competency.exists({ code: c.competency }),
+          }))
+        )
+        evaluation.course = assessment.course._id
+        evaluation.instance = instance._id
+        evaluation.requested = new Date()
+        evaluation.user = user.id
+
+        return await evaluation.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
       }
 
       return null

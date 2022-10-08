@@ -21,6 +21,9 @@ const LearningOutcomeSchema = new Schema(
 )
 
 const CompetencySchema = new Schema({
+  archived: {
+    type: Date,
+  },
   code: {
     type: String,
     required: true,

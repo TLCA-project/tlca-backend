@@ -1,3 +1,18 @@
+## 1.1.6 (2022-10-08)
+
+### Features
+
+- **assessments:** made assessment instances available to students (student)
+
+- **competencies:** archive a competency (coordinator)
+
+- **evaluations:** define a private note for an evaluation (teacher)
+- **evaluations:** request an evaluation (student)
+
+### Improvements
+
+- the displayName resolver has been fixed to either retrieve the concatenation of first and last names or the email address (user)
+
 ## 1.1.5 (2022-09-28)
 
 ### Features

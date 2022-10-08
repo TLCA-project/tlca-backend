@@ -1,3 +1,4 @@
+import Bugsnag from '@bugsnag/js'
 import { UserInputError } from 'apollo-server'
 import mongoose from 'mongoose'
 
@@ -26,6 +27,10 @@ const resolvers = {
     // Retrieve whether this competency has learning outcomes.
     hasLearningOutcomes(competency, _args, _context, _info) {
       return competency.learningOutcomes?.length
+    },
+    // Retrieve whether this competency is archived.
+    isArchived(competency, _args, _context, _info) {
+      return !!competency.archived
     },
     // Retrieve whether this competency has been created by the connected user.
     isOwner(competency, _args, { user }, _info) {
@@ -101,6 +106,40 @@ const resolvers = {
     },
   },
   Mutation: {
+    // Archive a competency.
+    async archiveCompetency(_parent, args, { models, user }, _info) {
+      const { Competency, Course } = models
+
+      // Retrieve the competency to archive.
+      const competency = await Competency.findOne({ code: args.code })
+      if (!competency || competency.user.toString() !== user.id) {
+        throw new UserInputError('COMPETENCY_NOT_FOUND')
+      }
+      if (competency.archived) {
+        throw new UserInputError('COMPETENCY_ALREADY_ARCHIVED')
+      }
+
+      // Check that the competency is not used in a non archived course.
+      const courses = await Course.find({
+        'competencies.competency': competency._id,
+        archived: { $exists: false },
+      }).lean()
+      if (courses.length) {
+        throw new UserInputError('COMPETENCY_ARCHIVE_FAILED')
+      }
+
+      // Archive the competency.
+      competency.archived = new Date()
+
+      // Save the competency into the database.
+      try {
+        return await competency.save()
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return null
+    },
     // Create a new competency from the specified parameters.
     async createCompetency(_parent, args, { models, user }, _info) {
       const { Competency, Partner } = models
