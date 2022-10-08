@@ -164,19 +164,17 @@ const resolvers = {
     // Retrieve all the assessment instances
     // that are available to the connected user.
     async assessmentInstances(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, User } = models
+      const { Assessment, AssessmentInstance, Registration, User } = models
 
       // Only 'admin' can access all the assessment instances
-      // without specifying an assessment or a learner.
+      // without specifying an assessment.
       if (!args.assessment && !hasRole(user, 'admin')) {
         throw new UserInputError('MISSING_FILTER')
       }
 
       const filter = {}
 
-      // Filter by assessment, only possible if the connected user
-      // is either the coordinator or a teacher or is registered
-      // to the course associated to the assessment
+      // Filter by assessment.
       if (args.assessment) {
         const assessment = await Assessment.findOne(
           {
@@ -188,24 +186,56 @@ const resolvers = {
           throw new UserInputError('ASSESSMENT_NOT_FOUND')
         }
 
+        // Only possible if the connected user
+        // is either the coordinator or a teacher or is registered
+        // to the course associated to the assessment.
+        const course = await Assessment.populate(assessment, [
+          {
+            path: 'course',
+            select: '_id coordinator teachers',
+            model: 'Course',
+          },
+        ]).then((a) => a.course)
+
+        const isRegistered = await Registration.exists({
+          course: course._id,
+          invitation: { $exists: false },
+          user: user.id,
+        })
+        if (
+          !(
+            isCoordinator(course, user) ||
+            isTeacher(course, user) ||
+            isRegistered
+          )
+        ) {
+          throw new AuthenticationError('NOT_AUTHORISED')
+        }
+
         filter.assessment = assessment._id
 
         // Filter by learner, only possible if the connected user
         // is either the coordinator or a teacher
-        // of the course associated to the assessment
-        // and the learner is registered to it
-        if (args.learner) {
-          const learner = await User.findOne(
-            {
-              username: args.learner,
-            },
-            '_id'
-          ).lean()
-          if (!learner) {
-            throw new UserInputError('USER_NOT_FOUND')
-          }
+        // of the course associated to the assessment.
+        if (isCoordinator(course, user) || isTeacher(course, user)) {
+          if (args.learner) {
+            const learner = await User.findOne(
+              {
+                username: args.learner,
+              },
+              '_id'
+            ).lean()
+            if (!learner) {
+              throw new UserInputError('USER_NOT_FOUND')
+            }
 
-          filter.user = learner._id
+            filter.user = learner._id
+          }
+        }
+        // By default, can only retrieve assessment instances
+        // associated to the connected user.
+        else {
+          filter.user = user.id
         }
       }
 

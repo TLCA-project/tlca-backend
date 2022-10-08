@@ -78,7 +78,7 @@ const typeDefs = gql`
     assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
     assessmentInstance(id: ID!): AssessmentInstance @auth(requires: STUDENT)
     assessmentInstances(assessment: ID, learner: ID): [AssessmentInstance!]
-      @auth(requires: TEACHER)
+      @auth(requires: [STUDENT, TEACHER])
     assessments(
       courseCode: ID
       limit: Int

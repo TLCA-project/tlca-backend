@@ -73,8 +73,8 @@ async function sendConfirmationEmail(smtpTransport, user) {
 const resolvers = {
   User: {
     displayName(user, _args, _context, _info) {
-      if (!(user.firstName && user.lastName)) {
-        return user.username
+      if (!user.firstName || !user.lastName) {
+        return user.email ?? user.username
       }
       return `${user.firstName} ${user.lastName}`
     },
@@ -100,7 +100,7 @@ const resolvers = {
       // Retrieve the logged in user, if any.
       const loggedUser = await User.findOne(
         { _id: user?.id },
-        'firstName lastName roles username'
+        'firstName lastName email roles username'
       ).lean()
       if (!user) {
         throw new AuthenticationError('Not authorized')

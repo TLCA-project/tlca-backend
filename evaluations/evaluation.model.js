@@ -62,13 +62,21 @@ const EvaluationSchema = new Schema({
   evaluator: {
     type: Schema.ObjectId,
     ref: 'User',
-    required: true,
+  },
+  explanation: {
+    type: String,
   },
   instance: {
     type: Schema.ObjectId,
     ref: 'AssessmentInstance',
   },
+  note: {
+    type: String,
+  },
   published: {
+    type: Date,
+  },
+  requested: {
     type: Date,
   },
   user: {
