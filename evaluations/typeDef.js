@@ -24,15 +24,17 @@ const typeDefs = gql`
     comment: String
     competencies: [EvaluationCompetency!]
     course: Course!
+    created: DateTime! @auth(requires: TEACHER)
     date: DateTime!
+    evaluator: User
     explanation: String
     id: ID!
-    instance: AssessmentInstance
-    isPublished: Boolean
+    instance: AssessmentInstance!
+    isPublished: Boolean!
     learner: User!
     note: String @auth(requires: TEACHER)
     published: DateTime
-    status: EvaluationStatus
+    status: EvaluationStatus!
   }
 
   extend type Query {
