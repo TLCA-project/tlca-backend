@@ -15,6 +15,7 @@ function clean(args) {
   cleanArray(args, 'competencies', 'phases')
   cleanField(
     args,
+    'canRequestEvaluation',
     'end',
     'incremental',
     'instances',
@@ -55,6 +56,10 @@ const resolvers = {
     SINGLE_TAKE: 'single_take',
   },
   Assessment: {
+    // Retrieve whether learners can request an evaluation for this assessment.
+    canRequestEvaluation(assessment, _args, _context, _info) {
+      return !!assessment.canRequestEvaluation
+    },
     // Retrieve the detailed information about the competencies.
     async competencies(assessment, _args, { models }, _info) {
       const { Assessment } = models
@@ -71,7 +76,7 @@ const resolvers = {
         a.competencies.map((c) => ({ ...c, isOptional: c.optional }))
       )
     },
-    // Retrieve whether this assessment has an oral defense or not.
+    // Retrieve whether this assessment has an oral defense.
     hasOralDefense(assessment, _args, _context, _info) {
       return !!assessment.oralDefense
     },
@@ -79,15 +84,15 @@ const resolvers = {
     id(assessment, _args, _context, _info) {
       return assessment._id.toString()
     },
-    // Retrieve whether this assessment is closed or not.
+    // Retrieve whether this assessment is closed.
     isClosed(assessment, _args, _context, _info) {
       return !!assessment.closed
     },
-    // Retrieve whether this assessment is hidden or not.
+    // Retrieve whether this assessment is hidden.
     isHidden(assessment, _args, _context, _info) {
       return !!assessment.hidden
     },
-    // Retrieve whether this assessment is incremental or not.
+    // Retrieve whether this assessment is incremental.
     isIncremental(assessment, _args, _context, _info) {
       return !!assessment.incremental
     },
@@ -375,6 +380,7 @@ const resolvers = {
       }
 
       assessment.course = course._id
+      assessment.hidden = true
       assessment.user = user.id
 
       // Create a new event for this assessment, if asked for.
@@ -540,6 +546,7 @@ const resolvers = {
 
       // Edit the assessment mongoose object.
       for (const field of [
+        'canRequestEvaluation',
         'category',
         'code',
         'competencies',
@@ -551,6 +558,7 @@ const resolvers = {
         'name',
         'oralDefense',
         'start',
+        'takes',
       ]) {
         assessment[field] = args[field]
       }

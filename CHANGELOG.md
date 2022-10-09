@@ -1,3 +1,17 @@
+## 1.1.7 (2022-10-09)
+
+### Features
+
+- **assessments:** configure an assessment to not authorise evaluation request (coordinator)
+
+### Improvements
+
+- added field to the evaluation GraphQL type definition
+
+### Bug Fixes
+
+- made the pre-commit hook executable
+
 ## 1.1.6 (2022-10-08)
 
 ### Features

@@ -28,22 +28,31 @@ const resolvers = {
       const { Course } = models
       return await Course.findOne({ _id: evaluation.course })
     },
+    // Retrieve the date the evaluation was created.
+    created(evaluation, _args, _context, _info) {
+      return evaluation.date
+    },
     // Retrieve the date the evaluation was taken.
     date(evaluation, _args, _context, _info) {
       return evaluation.evalDate || evaluation.date
+    },
+    // Retrieve the evaluator who created this evaluation.
+    async evaluator(evaluation, _args, { models }, _info) {
+      const { User } = models
+      return await User.findOne({ _id: evaluation.evaluator }).lean()
     },
     // Retrieve the 'id' of the evaluation from the MongoDB '_id'.
     id(evaluation, _args, _context, _info) {
       return evaluation._id.toString()
     },
-    // Retrieve whether this evaluation is published or not.
+    // Retrieve whether this evaluation is published.
     isPublished(evaluation, _args, _context, _info) {
       return !!evaluation.published
     },
     // Retrieve the learner who took this evaluation.
     async learner(evaluation, _args, { models }, _info) {
       const { User } = models
-      return await User.findOne({ _id: evaluation.user })
+      return await User.findOne({ _id: evaluation.user }).lean()
     },
     // Retrieve the status of this evaluation
     // according to it's publication date.
@@ -428,9 +437,9 @@ const resolvers = {
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id course'
+        '_id canRequestEvaluation course'
       ).lean()
-      if (!assessment) {
+      if (!assessment || !assessment.canRequestEvaluation) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 

@@ -65,6 +65,9 @@ const PhaseSchema = new Schema(
 )
 
 const AssessmentSchema = new Schema({
+  canRequestEvaluation: {
+    type: Boolean,
+  },
   category: {
     type: String,
     enum: [
