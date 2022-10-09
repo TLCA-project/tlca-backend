@@ -428,9 +428,9 @@ const resolvers = {
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id course'
+        '_id canRequestEvaluation course'
       ).lean()
-      if (!assessment) {
+      if (!assessment || !assessment.canRequestEvaluation) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
