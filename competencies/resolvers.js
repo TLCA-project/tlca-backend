@@ -67,12 +67,11 @@ const resolvers = {
       // adjust the filter according to his/her roles.
       if (user) {
         const { roles } = user
-        const userId = new mongoose.Types.ObjectId(user.id)
 
         // Teachers can also access their own competencies
         // no matter whether they are public or not.
         if (roles.includes('teacher')) {
-          filter.$or.push({ user: userId })
+          filter.$or.push({ user: user.id })
         }
 
         // Admin can access to all the competencies.
