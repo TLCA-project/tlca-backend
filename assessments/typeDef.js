@@ -44,6 +44,7 @@ const typeDefs = gql`
   }
 
   type Assessment {
+    canRequestEvaluation: Boolean
     category: AssessmentCategory!
     code: String
     competencies: [AssessmentCompetency!]
@@ -115,6 +116,7 @@ const typeDefs = gql`
 
   extend type Mutation {
     createAssessment(
+      canRequestEvaluation: Boolean
       category: AssessmentCategory!
       code: String
       competencies: [AssessmentCompetencyInput!]
@@ -135,6 +137,7 @@ const typeDefs = gql`
     createAssessmentInstance(id: ID!): AssessmentInstance
       @auth(requires: STUDENT)
     editAssessment(
+      canRequestEvaluation: Boolean
       category: AssessmentCategory!
       code: String
       competencies: [AssessmentCompetencyInput!]
