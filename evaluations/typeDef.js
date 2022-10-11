@@ -34,6 +34,7 @@ const typeDefs = gql`
     learner: User!
     note: String @auth(requires: TEACHER)
     published: DateTime
+    requested: DateTime
     status: EvaluationStatus!
   }
 

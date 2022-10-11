@@ -60,6 +60,9 @@ const resolvers = {
       if (evaluation.published) {
         return 'published'
       }
+      if (evaluation.requested) {
+        return 'requested'
+      }
       return 'unpublished'
     },
   },
