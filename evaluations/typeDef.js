@@ -25,6 +25,7 @@ const typeDefs = gql`
     competencies: [EvaluationCompetency!]
     course: Course!
     created: DateTime! @auth(requires: TEACHER)
+    data: JSONObject
     date: DateTime!
     evaluator: User
     explanation: String
@@ -43,6 +44,7 @@ const typeDefs = gql`
     evaluations(
       assessment: ID
       courseCode: ID
+      instance: ID
       learner: ID
       offset: Int
       limit: Int

@@ -52,6 +52,9 @@ const EvaluationSchema = new Schema({
     ref: 'Course',
     required: true,
   },
+  data: {
+    type: Object,
+  },
   date: {
     type: Date,
     default: Date.now,

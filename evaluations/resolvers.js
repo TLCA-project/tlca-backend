@@ -136,6 +136,10 @@ const resolvers = {
         filter.$and.push({ course: course._id })
       }
 
+      if (args.instance) {
+        filter.$and.push({ instance: args.instance })
+      }
+
       // if (args.learner) {
       //   const learner = await User.exists({ username: args.learner })
       //   if (!learner) {
