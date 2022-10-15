@@ -60,6 +60,9 @@ const resolvers = {
       if (evaluation.published) {
         return 'published'
       }
+      if (evaluation.requested) {
+        return 'requested'
+      }
       return 'unpublished'
     },
   },
@@ -131,6 +134,10 @@ const resolvers = {
           throw new UserInputError('COURSE_NOT_FOUND')
         }
         filter.$and.push({ course: course._id })
+      }
+
+      if (args.instance) {
+        filter.$and.push({ instance: args.instance })
       }
 
       // if (args.learner) {
