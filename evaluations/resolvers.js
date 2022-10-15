@@ -233,45 +233,40 @@ const resolvers = {
     },
     // Delete an existing evaluation.
     async deleteEvaluation(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation } = models
+      const { AssessmentInstance, Evaluation, ProgressHistory } = models
 
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
         { _id: args.id },
         '_id evaluator instance published'
-      )
+      ).lean()
       if (!evaluation || !isEvaluator(evaluation, user)) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
 
-      // If the evaluation is already published,
-      // must delete all the progress history elements as well.
-      if (evaluation.published) {
-        throw new UserInputError('UPCOMING_FEATURE')
-      }
-
-      // If the evaluation if the only one of its instance
-      // must delete the instance as well.
-      const instance = await AssessmentInstance.findOne(
-        {
-          _id: evaluation.instance,
-        },
-        '_id'
-      )
-      if (!instance) {
-        throw new UserInputError('EVALUATION_NOT_FOUND')
-      }
+      // Retrieve the total number of evaluations
+      // associated to the same instance.
       const evaluationsNb = await Evaluation.countDocuments({
-        instance: instance._id,
+        instance: evaluation.instance,
       })
 
       // Delete the evaluation.
       try {
-        if (evaluationsNb === 1) {
-          await instance.delete()
+        // If the evaluation is already published,
+        // must delete all the progress history elements as well.
+        if (evaluation.published) {
+          await ProgressHistory.deleteMany({
+            evaluation: evaluation._id,
+          })
         }
 
-        await evaluation.delete()
+        // If there is only one evaluation for this instance,
+        // must delete the instance.
+        if (evaluationsNb === 1) {
+          await AssessmentInstance.deleteOne({ instance: evaluation.instance })
+        }
+
+        await Evaluation.deleteOne({ _id: args.id })
         return true
       } catch (err) {
         Bugsnag.notify(err)
