@@ -1,3 +1,13 @@
+## 1.1.8 (2022-10-15)
+
+### Features
+
+- **assessments:** take and submit an assessment that has been defined with the tfq provider (student)
+
+### Improvements
+
+- added the requested status for evaluations
+
 ## 1.1.7 (2022-10-09)
 
 ### Features

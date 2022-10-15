@@ -109,12 +109,12 @@ const resolvers = {
   },
   AssessmentInstance: {
     // Retrieve the resolved data for this assessment instance.
-    async content(assessmentInstance, _args, { models }, _info) {
+    async content(instance, _args, { models }, _info) {
       const { Assessment } = models
 
       // Retrieve the assessment associated to this assessment instance.
       const assessment = await Assessment.findOne(
-        { _id: assessmentInstance.assessment },
+        { _id: instance.assessment },
         'provider providerConfig'
       ).lean()
 
@@ -122,11 +122,13 @@ const resolvers = {
 
       switch (assessment.provider) {
         case 'tfq':
-          content.questions = assessmentInstance.data.questions.map((q, i) =>
-            q.select.map(
+          content.deadline = instance.data.deadline
+          content.questions = instance.data.questions.map((q, i) => ({
+            competency: assessment.providerConfig.questions[i].competency,
+            items: q.select.map(
               (j) => assessment.providerConfig.questions[i].pool[j].question
-            )
-          )
+            ),
+          }))
           break
       }
 
@@ -157,14 +159,14 @@ const resolvers = {
     async assessmentInstance(_parent, args, { models }, _info) {
       const { AssessmentInstance } = models
 
-      const assessmentInstance = await AssessmentInstance.findOne({
+      const instance = await AssessmentInstance.findOne({
         _id: args.id,
       }).lean()
-      if (!assessmentInstance) {
+      if (!instance) {
         throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
       }
 
-      return assessmentInstance
+      return instance
     },
     // Retrieve all the assessment instances
     // that are available to the connected user.
@@ -459,13 +461,27 @@ const resolvers = {
         throw new AuthenticationError('NOT_AUTHORISED')
       }
 
+      // Check whether there is already an assessment instance.
+      const instance = await AssessmentInstance.findOne({
+        assessment: assessment._id,
+        user: user.id,
+      })
+      if (instance) {
+        return instance
+      }
+
       // TODO: the logic to create the instance.
       const data = {}
+      const config = assessment.providerConfig
 
       switch (assessment.provider) {
         case 'tfq':
+          data.started = Date.now
+          data.deadline = DateTime.now()
+            .plus({ seconds: config.maxTime })
+            .toISO()
           data.questions = []
-          for (const question of assessment.providerConfig.questions) {
+          for (const question of config.questions) {
             const select = []
             while (select.length < question.select) {
               const r = Math.floor(Math.random() * question.pool.length)
@@ -479,7 +495,7 @@ const resolvers = {
       }
 
       // Create the assessment instance Mongoose object.
-      const assessmentInstance = new AssessmentInstance({
+      const newInstance = new AssessmentInstance({
         assessment: assessment._id,
         data,
         user: user.id,
@@ -487,7 +503,7 @@ const resolvers = {
 
       // Save the assessment instance into the database.
       try {
-        return await assessmentInstance.save()
+        return await newInstance.save()
       } catch (err) {
         console.log(err)
       }
@@ -662,6 +678,45 @@ const resolvers = {
       }
 
       return null
+    },
+    async saveAssessmentTake(_parent, args, { models, user }, _info) {
+      const { AssessmentInstance, Evaluation } = models
+
+      // Retrieve the assessment instance.
+      const instance = await AssessmentInstance.findOne({ _id: args.id })
+        .populate({
+          path: 'assessment',
+          select: 'course',
+          model: 'Assessment',
+        })
+        .lean()
+      if (!instance) {
+        throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+      }
+
+      if (DateTime.now() > DateTime.fromISO(instance.data.deadline)) {
+        throw new UserInputError('TOO_LATE_TO_SAVE')
+      }
+
+      let evaluation = await Evaluation.findOne({ instance: args.id })
+      if (!evaluation) {
+        evaluation = new Evaluation(args)
+        evaluation.assessment = instance.assessment._id
+        evaluation.course = instance.assessment.course
+        evaluation.instance = args.id
+        evaluation.user = user.id
+      }
+      evaluation.data = { answer: args.answer }
+      evaluation.requested = Date.now()
+
+      try {
+        // Save or update the evaluation into the database.
+        await evaluation.save()
+        return true
+      } catch (err) {
+        console.log(err)
+        return false
+      }
     },
     // Show or hide this assessment depending on its visibility.
     async showHideAssessment(_parent, args, { models, user }, _info) {

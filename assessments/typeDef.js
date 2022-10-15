@@ -157,6 +157,8 @@ const typeDefs = gql`
     ): Assessment @auth(requires: TEACHER)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
+    saveAssessmentTake(id: ID!, answer: [[Boolean!]!]!): Boolean
+      @auth(requires: STUDENT)
     showHideAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
   }
 `
