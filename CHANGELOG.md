@@ -1,3 +1,12 @@
+## 1.1.9 (2022-10-17)
+
+### Features
+
+- **evaluations:** accept an evaluation request (teacher)
+- **evaluations:** delete a published evaluation (teacher)
+- **evaluations:** edit a non-published or accepted evaluation (teacher)
+- **evaluations:** reject an evaluation request (teacher)
+
 ## 1.1.8 (2022-10-15)
 
 ### Features
@@ -67,7 +76,7 @@
 
 ### Features
 
-- **evaluations:** delete an non-published evaluation (teacher)
+- **evaluations:** delete a non-published evaluation (teacher)
 
 - **users:** edit a user (user)
 - **users:** resend the confirmation email (user and admin)
