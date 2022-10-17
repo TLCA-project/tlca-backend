@@ -2,7 +2,9 @@ import { gql } from 'apollo-server'
 
 const typeDefs = gql`
   enum EvaluationStatus {
+    ACCEPTED
     PUBLISHED
+    REJECTED
     REQUESTED
     UNPUBLISHED
   }
@@ -32,9 +34,11 @@ const typeDefs = gql`
     id: ID!
     instance: AssessmentInstance!
     isPublished: Boolean!
+    isRequestPending: Boolean @auth(requires: TEACHER)
     learner: User!
     note: String @auth(requires: TEACHER)
     published: DateTime
+    rejectionReason: String
     requested: DateTime
     status: EvaluationStatus!
   }
@@ -64,6 +68,7 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
+    acceptEvaluationRequest(id: ID!): Evaluation @auth(requires: TEACHER)
     createEvaluation(
       assessment: ID!
       comment: String
@@ -74,7 +79,16 @@ const typeDefs = gql`
       note: String
     ): Evaluation @auth(requires: TEACHER)
     deleteEvaluation(id: ID!): Boolean @auth(requires: TEACHER)
+    editEvaluation(
+      comment: String
+      competencies: [EvaluationCompetencyInput!]
+      evalDate: DateTime
+      id: ID!
+      note: String
+    ): Evaluation @auth(requires: TEACHER)
     publishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
+    rejectEvaluationRequest(id: ID!, reason: String!): Evaluation
+      @auth(requires: TEACHER)
     requestEvaluation(
       assessment: ID!
       competencies: [EvaluationCompetencyInput!]
