@@ -35,6 +35,9 @@ const CompetencySchema = new Schema(
 )
 
 const EvaluationSchema = new Schema({
+  accepted: {
+    type: Date,
+  },
   assessment: {
     type: Schema.ObjectId,
     ref: 'Assessment',
@@ -79,8 +82,18 @@ const EvaluationSchema = new Schema({
   published: {
     type: Date,
   },
+  rejected: {
+    type: Date,
+  },
+  rejectionReason: {
+    type: String,
+  },
   requested: {
     type: Date,
+  },
+  requestedCompetencies: {
+    type: [CompetencySchema],
+    default: undefined,
   },
   user: {
     type: Schema.ObjectId,
