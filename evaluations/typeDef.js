@@ -79,6 +79,13 @@ const typeDefs = gql`
       note: String
     ): Evaluation @auth(requires: TEACHER)
     deleteEvaluation(id: ID!): Boolean @auth(requires: TEACHER)
+    editEvaluation(
+      comment: String
+      competencies: [EvaluationCompetencyInput!]
+      evalDate: DateTime
+      id: ID!
+      note: String
+    ): Evaluation @auth(requires: TEACHER)
     publishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
     rejectEvaluationRequest(id: ID!, reason: String!): Evaluation
       @auth(requires: TEACHER)

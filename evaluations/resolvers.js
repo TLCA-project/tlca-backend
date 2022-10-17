@@ -84,7 +84,7 @@ const resolvers = {
   },
   Query: {
     // Retrieve one given evaluation given its 'id'.
-    async evaluation(_parent, args, { models }, _info) {
+    async evaluation(_parent, args, { models, user }, _info) {
       const { Evaluation } = models
 
       const evaluation = await Evaluation.findOne({ _id: args.id })
@@ -95,6 +95,21 @@ const resolvers = {
         .lean()
       if (!evaluation) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      console.log('JE SUIS LA')
+      if (
+        !isEvaluator(evaluation, user) &&
+        evaluation.accepted &&
+        !evaluation.published
+      ) {
+        console.log('JE SUIS ICIIII')
+        const requestedCompetencies = await Evaluation.populate(evaluation, {
+          path: 'requestedCompetencies.competency',
+          model: 'Competency',
+        }).then((e) => e.requestedCompetencies)
+        console.log(requestedCompetencies)
+        evaluation.competencies = requestedCompetencies ?? []
       }
 
       return evaluation
@@ -327,6 +342,53 @@ const resolvers = {
 
       return false
     },
+    // Edit an existing evaluation from the specified parameters.
+    async editEvaluation(_parent, args, { models, user }, _info) {
+      const { Competency, Evaluation } = models
+
+      // Retrieve the evaluation to edit.
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (
+        !evaluation ||
+        !isEvaluator(evaluation, user) ||
+        evaluation.published ||
+        (evaluation.requested && !evaluation.accepted)
+      ) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Clean up the optional args.
+      clean(args)
+
+      // Edit the evaluation mongoose object.
+      for (const field of ['comment', 'evalDate', 'note']) {
+        evaluation[field] = args[field]
+      }
+      evaluation.competencies = await Promise.all(
+        args.competencies.map(async (c) => ({
+          ...c,
+          competency: await Competency.exists({ code: c.competency }),
+        }))
+      )
+
+      // Save the assessment into the database.
+      try {
+        return await evaluation.save()
+      } catch (err) {
+        const formErrors = {}
+
+        switch (err.name) {
+          case 'ValidationError':
+            Object.keys(err.errors).forEach(
+              (e) => (formErrors[e] = err.errors[e].properties.message)
+            )
+            throw new UserInputError('VALIDATION_ERROR', { formErrors })
+        }
+      }
+
+      return null
+    },
+    // TODO: comment
     async publishEvaluation(_parent, args, { models, user }, _info) {
       const { Evaluation, ProgressHistory } = models
 
