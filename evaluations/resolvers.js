@@ -2,18 +2,24 @@ import Bugsnag from '@bugsnag/js'
 
 import { AuthenticationError, UserInputError } from 'apollo-server'
 
-import { isCoordinator, isEvaluator } from '../lib/courses.js'
+import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
 import { cleanField, cleanString } from '../lib/utils.js'
 
 // Clean up the optional args related to an assessment.
 function clean(args) {
-  cleanField(args, 'evalDate')
-  cleanString(args, 'comment', 'note')
+  cleanField(args, 'accepted', 'evalDate', 'published', 'rejected', 'requested')
+  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason')
+}
+
+function isRequestPending(evaluation) {
+  return evaluation.requested && !(evaluation.accepted || evaluation.rejected)
 }
 
 const resolvers = {
   EvaluationStatus: {
+    ACCEPTED: 'accepted',
     PUBLISHED: 'published',
+    REJECTED: 'rejected',
     REQUESTED: 'requested',
     UNPUBLISHED: 'unpublished',
   },
@@ -49,6 +55,10 @@ const resolvers = {
     isPublished(evaluation, _args, _context, _info) {
       return !!evaluation.published
     },
+    // Retrieve whether this evalation request is still pending.
+    isRequestPending(evaluation, _args, _context, _info) {
+      return isRequestPending(evaluation)
+    },
     // Retrieve the learner who took this evaluation.
     async learner(evaluation, _args, { models }, _info) {
       const { User } = models
@@ -61,6 +71,12 @@ const resolvers = {
         return 'published'
       }
       if (evaluation.requested) {
+        if (evaluation.accepted) {
+          return 'accepted'
+        }
+        if (evaluation.rejected) {
+          return 'rejected'
+        }
         return 'requested'
       }
       return 'unpublished'
@@ -157,6 +173,43 @@ const resolvers = {
     },
   },
   Mutation: {
+    // Accept an evaluation request.
+    async acceptEvaluationRequest(_parent, args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      // Retrieve the evaluation request to accept.
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation || !isRequestPending(evaluation)) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Retrieve the course associated to this evaluation.
+      const course = await Evaluation.populate(evaluation, [
+        {
+          path: 'course',
+          select: '_id coordinator teachers',
+          model: 'Course',
+        },
+      ]).then((e) => e.course)
+      if (!(isCoordinator(course, user) || isTeacher(course, user))) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Accept the evaluation request.
+      evaluation.accepted = new Date()
+      evaluation.evaluator = user.id
+      evaluation.requestedCompetencies = evaluation.competencies
+      evaluation.competencies = undefined
+
+      try {
+        // Update the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return evaluation
+    },
     // Create a new evaluation from the specified assessment and learner.
     async createEvaluation(_parent, args, { models, user }, _info) {
       const { Assessment, AssessmentInstance, Competency, Evaluation, User } =
@@ -422,6 +475,42 @@ const resolvers = {
       }
 
       return null
+    },
+    // Reject an evaluation request.
+    async rejectEvaluationRequest(_parent, args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      // Retrieve the evaluation request to reject.
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation || !isRequestPending(evaluation)) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Retrieve the course associated to this evaluation.
+      const course = await Evaluation.populate(evaluation, [
+        {
+          path: 'course',
+          select: '_id coordinator teachers',
+          model: 'Course',
+        },
+      ]).then((e) => e.course)
+      if (!(isCoordinator(course, user) || isTeacher(course, user))) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Reject the evaluation request.
+      evaluation.rejected = new Date()
+      evaluation.evaluator = user.id
+      evaluation.rejectionReason = args.reason
+
+      try {
+        // Update the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return evaluation
     },
     // Request a new evaluation for the specified assessment.
     async requestEvaluation(_parent, args, { models, user }, _info) {
