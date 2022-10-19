@@ -97,18 +97,15 @@ const resolvers = {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
 
-      console.log('JE SUIS LA')
       if (
         !isEvaluator(evaluation, user) &&
         evaluation.accepted &&
         !evaluation.published
       ) {
-        console.log('JE SUIS ICIIII')
         const requestedCompetencies = await Evaluation.populate(evaluation, {
           path: 'requestedCompetencies.competency',
           model: 'Competency',
         }).then((e) => e.requestedCompetencies)
-        console.log(requestedCompetencies)
         evaluation.competencies = requestedCompetencies ?? []
       }
 
@@ -253,7 +250,7 @@ const resolvers = {
       let instance = null
       if (args.instance) {
         instance = await AssessmentInstance.findOne(
-          { _id: args.instance, assessment: assessment._id, user: user.id },
+          { _id: args.instance, assessment: assessment._id, user: learner._id },
           '_id assessment'
         )
         if (!instance) {
