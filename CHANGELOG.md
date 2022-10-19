@@ -1,3 +1,9 @@
+## 1.1.10 (2022-10-19)
+
+### Bug Fixes
+
+- **evaluations:** fixed issue in the evaluation creation mutation that avoided the creation of an evaluation on an existing instance
+
 ## 1.1.9 (2022-10-17)
 
 ### Features
