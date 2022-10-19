@@ -155,9 +155,9 @@ const resolvers = {
         })
       }
 
-      // if (args.assessment) {
-      //   filter.assessment = args.assessment
-      // }
+      if (args.assessment) {
+        filter.$and.push({ assessment: args.assessment })
+      }
 
       if (args.courseCode) {
         const course = await Course.exists({ code: args.courseCode })
@@ -178,6 +178,10 @@ const resolvers = {
       //   }
       //   filter.user = learner._id
       // }
+
+      if (args.published) {
+        filter.$and.push({ published: { $exists: args.published } })
+      }
 
       return await Evaluation.find(filter)
         .populate({
