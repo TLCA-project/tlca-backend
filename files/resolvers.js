@@ -1,3 +1,4 @@
+import Bugsnag from '@bugsnag/js'
 import { UserInputError } from 'apollo-server'
 import fs from 'fs-extra'
 import path from 'path'
@@ -14,7 +15,6 @@ const resolvers = {
         type
       ]
       const document = await model.findOne({ code: args.code })
-
       if (!document) {
         throw new UserInputError(type + ' not found.')
       }
@@ -28,7 +28,9 @@ const resolvers = {
           'banner'
         )
 
-        if (document.banner) {
+        // Delete the current file, if any
+        // or create the complete path to the banner directory.
+        if (document.banner && fs.existsSync(document.banner)) {
           await fs.unlink(
             path.join(
               bannerPath,
@@ -39,6 +41,7 @@ const resolvers = {
           await fs.mkdirp(bannerPath)
         }
 
+        // Create the banner image file in the banner directory.
         await fs.writeFile(
           path.join(bannerPath, args.name),
           args.image,
@@ -52,7 +55,7 @@ const resolvers = {
           path: `/uploads/${type}/${document._id}/banner/${document.banner}`,
         }
       } catch (err) {
-        console.log(err)
+        Bugsnag.notify(err)
       }
 
       return null
