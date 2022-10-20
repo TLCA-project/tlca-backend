@@ -332,7 +332,7 @@ const resolvers = {
         // If there is only one evaluation for this instance,
         // must delete the instance.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ instance: evaluation.instance })
+          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
         }
 
         await Evaluation.deleteOne({ _id: args.id })
