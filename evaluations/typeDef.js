@@ -37,6 +37,7 @@ const typeDefs = gql`
     isRequestPending: Boolean @auth(requires: TEACHER)
     learner: User!
     note: String @auth(requires: TEACHER)
+    pastCompetencies: [EvaluationCompetency!]
     published: DateTime
     rejectionReason: String
     requested: DateTime
