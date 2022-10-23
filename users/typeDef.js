@@ -28,7 +28,13 @@ const typeDefs = gql`
     confirmAccount(username: String!, emailConfirmationToken: String!): Boolean!
     editUser(firstName: String, lastName: String, username: ID): User @auth
     refreshToken(token: String!): SignInResponse!
-    resendConfirmationEmail(usernameOrEmail: String!): Boolean!
+    sendConfirmationEmail(usernameOrEmail: String!): Boolean!
+    sendPasswordResetEmail(usernameOrEmail: String!): Boolean!
+    resetPassword(
+      password: String!
+      token: String!
+      username: String!
+    ): Boolean!
     signIn(usernameOrEmail: String!, password: String!): SignInResponse!
     signOut: Boolean @auth
     signUp(email: String!, password: String!): Boolean
