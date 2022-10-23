@@ -4,6 +4,33 @@ import fs from 'fs-extra'
 import path from 'path'
 
 const resolvers = {
+  Resource: {
+    // Retrieve the 'id' of this resource.
+    id(file, _args, _context, _info) {
+      return file._id.toString()
+    },
+    // Retrieve the 'name' of this resource.
+    name(file, _args, _context, _info) {
+      return file.origName
+    },
+  },
+  Query: {
+    async resources(_parent, args, { models }, _info) {
+      const { Course, File } = models
+
+      const filter = {}
+
+      if (args.courseCode) {
+        const course = await Course.exists({ code: args.courseCode })
+        if (!course) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+        filter.course = course._id
+      }
+
+      return await File.find(filter).lean()
+    },
+  },
   Mutation: {
     async updateBanner(_parent, args, { models }, _info) {
       const { Course, Partner, Program } = models
