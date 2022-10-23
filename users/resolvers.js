@@ -55,8 +55,8 @@ function getTokens(user, env) {
 }
 
 // Send a confirmation email to a user.
-async function sendConfirmationEmail(smtpTransport, user) {
-  const confirmationURL = `https://www.tlca.eu/profiles/${user.username}/${user.emailConfirmationToken}`
+async function sendConfirmationEmail(env, smtpTransport, user) {
+  const confirmationURL = `https://${env.DOMAIN_NAME}/profiles/${user.username}/${user.emailConfirmationToken}`
 
   await smtpTransport.sendMail({
     to: user.email,
@@ -236,7 +236,7 @@ const resolvers = {
     async resendConfirmationEmail(
       _parent,
       args,
-      { models, smtpTransport },
+      { env, models, smtpTransport },
       _info
     ) {
       const { User } = models
@@ -262,7 +262,7 @@ const resolvers = {
       user.updateEmail(user.email)
 
       // Send a confirmation email to the new user.
-      await sendConfirmationEmail(smtpTransport, user)
+      await sendConfirmationEmail(env, smtpTransport, user)
 
       // Save the user into the database.
       try {
@@ -334,7 +334,7 @@ const resolvers = {
 
       return false
     },
-    async signUp(_parent, args, { models, smtpTransport }, _info) {
+    async signUp(_parent, args, { env, models, smtpTransport }, _info) {
       const { Registration, User } = models
 
       // Create the user Mongoose object.
@@ -348,7 +348,7 @@ const resolvers = {
         await user.save()
 
         // Send a confirmation email to the new user.
-        await sendConfirmationEmail(smtpTransport, user)
+        await sendConfirmationEmail(env, smtpTransport, user)
 
         // Update any invitation that have been sent to this user.
         const registrations = await Registration.find({ email: args.email })
