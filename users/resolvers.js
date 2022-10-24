@@ -55,8 +55,8 @@ function getTokens(user, env) {
 }
 
 // Send a confirmation email to a user.
-async function sendConfirmationEmail(smtpTransport, user) {
-  const confirmationURL = `https://www.tlca.eu/profiles/${user.username}/${user.emailConfirmationToken}`
+async function sendConfirmationEmail(env, smtpTransport, user) {
+  const confirmationURL = `https://${env.DOMAIN_NAME}/profiles/${user.username}/${user.emailConfirmationToken}`
 
   await smtpTransport.sendMail({
     to: user.email,
@@ -66,6 +66,21 @@ async function sendConfirmationEmail(smtpTransport, user) {
       '<p>Hello,</p>' +
       '<p>Thank you for creating an account on the TLCA platform.</p>' +
       `<p>In order to be able to connect on the platform, you first need to confirm your email address. You can do so by visiting the following page:</p><p><a href="${confirmationURL}">${confirmationURL}</a></p>` +
+      '<p>The TLCA team</p>',
+  })
+}
+
+// Send a password reset email to a user.
+async function sendPasswordResetEmail(env, smtpTransport, user) {
+  const passwordResetURL = `https://${env.DOMAIN_NAME}/profiles/${user.username}/passwordreset/${user.resetPasswordToken}`
+
+  await smtpTransport.sendMail({
+    to: user.email,
+    from: 'sebastien@combefis.be',
+    subject: '[TLCA] Password reset',
+    html:
+      '<p>Hello,</p>' +
+      `<p>In order to reset your personal password, you can go to the following page:</p><p><a href="${passwordResetURL}">${passwordResetURL}</a></p>` +
       '<p>The TLCA team</p>',
   })
 }
@@ -232,11 +247,43 @@ const resolvers = {
 
       return null
     },
-    // Resend a confirmation email to this user.
-    async resendConfirmationEmail(
+    // Reset this user's password.
+    async resetPassword(_parent, args, { models }, _info) {
+      const { User } = models
+
+      // Retrieve the user whose password must be updated.
+      const user = await User.findOne(
+        { username: args.username },
+        'resetPasswordToken resetPasswordTokenExpires'
+      )
+      if (
+        !user ||
+        user.resetPasswordToken !== args.token ||
+        DateTime.now() > DateTime.fromISO(user.resetPasswordTokenExpires)
+      ) {
+        throw new UserInputError('INVALID_TOKEN')
+      }
+
+      // Update the password.
+      user.resetPasswordToken = undefined
+      user.resetPasswordTokenExpires = undefined
+      user.password = args.password
+
+      // Save the user into the database.
+      try {
+        await user.save()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
+    // Send a confirmation email to this user.
+    async sendConfirmationEmail(
       _parent,
       args,
-      { models, smtpTransport },
+      { env, models, smtpTransport },
       _info
     ) {
       const { User } = models
@@ -262,7 +309,46 @@ const resolvers = {
       user.updateEmail(user.email)
 
       // Send a confirmation email to the new user.
-      await sendConfirmationEmail(smtpTransport, user)
+      await sendConfirmationEmail(env, smtpTransport, user)
+
+      // Save the user into the database.
+      try {
+        await user.save()
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
+    // Send a password reset email to this user.
+    async sendPasswordResetEmail(
+      _parent,
+      args,
+      { env, models, smtpTransport },
+      _info
+    ) {
+      const { User } = models
+
+      // Retrieve the user to send the password reset email to.
+      const user = await User.findOne(
+        {
+          $or: [
+            { email: args.usernameOrEmail },
+            { username: args.usernameOrEmail },
+          ],
+        },
+        'email resetPasswordToken resetPasswordTokenExpires username'
+      )
+      if (!user) {
+        throw new UserInputError('USER_NOT_FOUND')
+      }
+
+      // Reset the password.
+      user.resetPassword()
+
+      // Send a password reset email to the user.
+      await sendPasswordResetEmail(env, smtpTransport, user)
 
       // Save the user into the database.
       try {
@@ -334,7 +420,7 @@ const resolvers = {
 
       return false
     },
-    async signUp(_parent, args, { models, smtpTransport }, _info) {
+    async signUp(_parent, args, { env, models, smtpTransport }, _info) {
       const { Registration, User } = models
 
       // Create the user Mongoose object.
@@ -348,7 +434,7 @@ const resolvers = {
         await user.save()
 
         // Send a confirmation email to the new user.
-        await sendConfirmationEmail(smtpTransport, user)
+        await sendConfirmationEmail(env, smtpTransport, user)
 
         // Update any invitation that have been sent to this user.
         const registrations = await Registration.find({ email: args.email })

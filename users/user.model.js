@@ -1,8 +1,9 @@
 import { passwordStrength } from 'check-password-strength'
 import crypto from 'crypto'
-import { DateTime } from 'luxon'
 import mongoose from 'mongoose'
 import validator from 'validator'
+
+import { generateToken } from '../lib/utils.js'
 
 const { model, Schema } = mongoose
 
@@ -16,15 +17,15 @@ const validateLocalStrategyEmail = function (email) {
 const validateUsername = function (username) {
   const usernameRegex = /^(?=[\w.-]+$)(?!.*[._-]{2})(?!\.)(?!.*\.$).{3,34}$/
   const illegalUsernames = [
-    'administrator',
-    'password',
-    'admin',
-    'user',
-    'unknown',
     'anonymous',
-    'null',
-    'undefined',
+    'admin',
+    'administrator',
     'api',
+    'null',
+    'password',
+    'undefined',
+    'unknown',
+    'user',
   ]
   return (
     this.provider !== 'local' ||
@@ -174,12 +175,18 @@ UserSchema.methods.hashPassword = function (password) {
 // Update the email address and invalidate the account of this user.
 UserSchema.methods.updateEmail = function (email) {
   this.email = email
-
   delete this.emailConfirmed
-  this.emailConfirmationToken = crypto.randomBytes(20).toString('hex')
-  this.emailConfirmationTokenExpires = DateTime.now()
-    .plus({ minutes: 10 })
-    .toISO()
+
+  const token = generateToken()
+  this.emailConfirmationToken = token.token
+  this.emailConfirmationTokenExpires = token.expires
+}
+
+// Reset the password.
+UserSchema.methods.resetPassword = function () {
+  const token = generateToken()
+  this.resetPasswordToken = token.token
+  this.resetPasswordTokenExpires = token.expires
 }
 
 export default model('User', UserSchema)

@@ -1,3 +1,4 @@
+import Bugsnag from '@bugsnag/js'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 
@@ -108,6 +109,12 @@ const resolvers = {
     },
   },
   AssessmentInstance: {
+    // Retrieve the 'assessment' associated to this instance.
+    async assessment(instance, _args, { models }, _info) {
+      const { Assessment } = models
+
+      return await Assessment.findOne({ _id: instance.assessment })
+    },
     // Retrieve the resolved data for this assessment instance.
     async content(instance, _args, { models }, _info) {
       const { Assessment } = models
@@ -135,12 +142,24 @@ const resolvers = {
       return content
     },
     // Retrieve the 'datetime' creation of this assessment instance.
-    datetime(assessmentInstance, _args, _context, _info) {
-      return assessmentInstance.created
+    datetime(instance, _args, _context, _info) {
+      return instance.created
     },
-    // Retrieve the 'id' of this assessment instance.
-    id(assessmentInstance, _args, _context, _info) {
-      return assessmentInstance._id.toString()
+    // Retrieve the 'id' of this instance.
+    id(instance, _args, _context, _info) {
+      return instance._id.toString()
+    },
+    // Retrieve the 'learner' associated to this instance.
+    async learner(instance, _args, { models }, _info) {
+      const { User } = models
+
+      return await User.findOne({ _id: instance.user })
+    },
+    // Retrieve the number of evaluations associated to this instance.
+    async nbEvaluations(instance, _args, { models }, _info) {
+      const { Evaluation } = models
+
+      return await Evaluation.countDocuments({ instance: instance._id })
     },
   },
   Query: {
@@ -510,6 +529,62 @@ const resolvers = {
 
       return null
     },
+    // Delete a new assessment.
+    async deleteAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment, Evaluation, Event } = models
+
+      // Retrieve the assessment to delete.
+      const assessment = await Assessment.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
+      if (!assessment || !isCoordinator(assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Check if there are any evaluation associated to the assessment.
+      if (await Evaluation.exists({ assessment: assessment._id })) {
+        throw new UserInputError('EVALUATIONS_STILL_ASSOCIATED')
+      }
+
+      try {
+        // Check if there is an event associated to the assessment
+        // and delete it, if any.
+        if (assessment.event) {
+          const event = await Event.findOne({ _id: assessment.event })
+          if (event) {
+            await event.delete()
+          }
+        }
+
+        await assessment.delete()
+        return true
+      } catch (err) {
+        console.log(err)
+      }
+
+      return false
+    },
+    // Delete an existing instance from the specified parameters.
+    async deleteInstance(_parent, args, { models }, _info) {
+      const { AssessmentInstance } = models
+
+      // Retrieve the instance to delete.
+      const instance = await AssessmentInstance.findOne({ _id: args.id })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
+      }
+
+      try {
+        await AssessmentInstance.deleteOne({ _id: args.id })
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
     // Edit an existing assessment from the specified parameters.
     async editAssessment(_parent, args, { models, user }, _info) {
       const { Assessment, Competency } = models
@@ -612,43 +687,6 @@ const resolvers = {
       }
 
       return null
-    },
-    // Delete a new assessment.
-    async deleteAssessment(_parent, args, { models, user }, _info) {
-      const { Assessment, Evaluation, Event } = models
-
-      // Retrieve the assessment to delete.
-      const assessment = await Assessment.findOne({ _id: args.id }).populate({
-        path: 'course',
-        select: 'coordinator',
-        model: 'Course',
-      })
-      if (!assessment || !isCoordinator(assessment.course, user)) {
-        throw new UserInputError('ASSESSMENT_NOT_FOUND')
-      }
-
-      // Check if there are any evaluation associated to the assessment.
-      if (await Evaluation.exists({ assessment: assessment._id })) {
-        throw new UserInputError('EVALUATIONS_STILL_ASSOCIATED')
-      }
-
-      try {
-        // Check if there is an event associated to the assessment
-        // and delete it, if any.
-        if (assessment.event) {
-          const event = await Event.findOne({ _id: assessment.event })
-          if (event) {
-            await event.delete()
-          }
-        }
-
-        await assessment.delete()
-        return true
-      } catch (err) {
-        console.log(err)
-      }
-
-      return false
     },
     // Open or close this assessment depending on its openness.
     async openCloseAssessment(_parent, args, { models, user }, _info) {

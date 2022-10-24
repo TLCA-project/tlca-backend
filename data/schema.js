@@ -63,6 +63,7 @@ const models = {
   Course: courses.Course,
   Evaluation: evaluations.Evaluation,
   Event: events.Event,
+  File: files.File,
   Partner: partners.Partner,
   Program: programs.Program,
   ProgressHistory: evaluations.ProgressHistory,
