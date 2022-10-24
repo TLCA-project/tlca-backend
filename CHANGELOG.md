@@ -1,3 +1,21 @@
+## 1.1.11 (2022-10-24)
+
+### Features
+
+- **assessments:** delete an instance (admin)
+
+- **evaluations:** get the list of all the evaluations, or only the published ones, associated to a given assessment (teacher)
+- **evaluations:** get competencies acquired by past evaluations for incremental assessment (teacher and student)
+
+- **files:** get the list of files (resources) associated to a given course (student)
+
+- **users:** reset the password (user)
+
+### Bug Fixes
+
+- fixed a bug in the banner update resolver (unlink failed when the file does not exist)
+- fixed a bug in the resolver to delete an evaluation
+
 ## 1.1.10 (2022-10-19)
 
 ### Bug Fixes

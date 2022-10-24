@@ -64,6 +64,44 @@ const resolvers = {
       const { User } = models
       return await User.findOne({ _id: evaluation.user }).lean()
     },
+    // Retrieve the competencies acquired
+    // from previous evaluations of the same instance.
+    async pastCompetencies(evaluation, _args, { models }, _info) {
+      const { Competency, Evaluation } = models
+
+      const competencies = {}
+      const pastEvaluations = await Evaluation.find({
+        _id: { $ne: evaluation._id },
+        date: { $lte: evaluation.date },
+        instance: evaluation.instance,
+      }).lean()
+      for (const evaluation of pastEvaluations) {
+        for (const competency of evaluation.competencies) {
+          const id = competency.competency.toString()
+          if (!competencies[id]) {
+            competencies[id] = competency
+          } else {
+            if (competency.learningOutcomes) {
+              if (!competencies[id].learningOutcomes) {
+                competencies[id].learningOutcomes = competency.learningOutcomes
+              }
+            }
+            competencies[id].selected ||= competency.selected
+          }
+        }
+      }
+
+      const pastCompetencies = await Promise.all(
+        Object.values(competencies)
+          .filter((c) => c.selected || c.learningOutcomes?.some((lo) => lo))
+          .map(async (c) => ({
+            ...c,
+            competency: await Competency.findOne({ _id: c.competency }),
+          }))
+      )
+
+      return pastCompetencies
+    },
     // Retrieve the status of this evaluation
     // according to it's publication date.
     status(evaluation, _args, _content, _info) {
@@ -152,9 +190,9 @@ const resolvers = {
         })
       }
 
-      // if (args.assessment) {
-      //   filter.assessment = args.assessment
-      // }
+      if (args.assessment) {
+        filter.$and.push({ assessment: args.assessment })
+      }
 
       if (args.courseCode) {
         const course = await Course.exists({ code: args.courseCode })
@@ -175,6 +213,10 @@ const resolvers = {
       //   }
       //   filter.user = learner._id
       // }
+
+      if (args.published) {
+        filter.$and.push({ published: { $exists: args.published } })
+      }
 
       return await Evaluation.find(filter)
         .populate({
@@ -328,7 +370,7 @@ const resolvers = {
         // If there is only one evaluation for this instance,
         // must delete the instance.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ instance: evaluation.instance })
+          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
         }
 
         await Evaluation.deleteOne({ _id: args.id })

@@ -69,17 +69,20 @@ const typeDefs = gql`
   }
 
   type AssessmentInstance {
+    assessment: Assessment @auth(requires: ADMIN)
     data: JSONObject @auth(requires: TEACHER)
     datetime: DateTime!
     content: JSONObject @auth(requires: STUDENT)
     id: ID!
+    learner: User @auth(requires: ADMIN)
+    nbEvaluations: Int! @auth(requires: ADMIN)
   }
 
   extend type Query {
     assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
     assessmentInstance(id: ID!): AssessmentInstance @auth(requires: STUDENT)
     assessmentInstances(assessment: ID, learner: ID): [AssessmentInstance!]
-      @auth(requires: [STUDENT, TEACHER])
+      @auth(requires: [ADMIN, STUDENT, TEACHER])
     assessments(
       courseCode: ID
       limit: Int
@@ -136,6 +139,8 @@ const typeDefs = gql`
     ): Assessment @auth(requires: TEACHER)
     createAssessmentInstance(id: ID!): AssessmentInstance
       @auth(requires: STUDENT)
+    deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
+    deleteInstance(id: ID!): Boolean @auth(requires: ADMIN)
     editAssessment(
       canRequestEvaluation: Boolean
       category: AssessmentCategory!
@@ -155,7 +160,6 @@ const typeDefs = gql`
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
-    deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
     saveAssessmentTake(id: ID!, answer: [[Boolean!]!]!): Boolean
       @auth(requires: STUDENT)

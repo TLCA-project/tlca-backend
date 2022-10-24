@@ -11,6 +11,17 @@ const typeDefs = gql`
     path: String
   }
 
+  type Resource {
+    id: ID!
+    name: String!
+    size: Int!
+    type: String!
+  }
+
+  extend type Query {
+    resources(courseCode: ID): [Resource!]! @auth(requires: [STUDENT, TEACHER])
+  }
+
   extend type Mutation {
     updateBanner(
       code: String!
