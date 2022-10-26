@@ -621,29 +621,38 @@ const resolvers = {
       ]) {
         course[field] = args[field]
       }
+
       course.competencies = await Promise.all(
         args.competencies.map(async (c) => ({
           ...c,
           competency: await Competency.exists({ code: c.competency }),
         }))
       )
-      course.groups = !args.groups ? undefined : {}
-      course.groups.teaching = !args.groups?.teaching
-        ? undefined
-        : await Promise.all(
+
+      course.groups = undefined
+      if (args.groups) {
+        course.groups = {}
+
+        if (args.groups.teaching) {
+          course.groups.teaching = await Promise.all(
             args.groups.teaching.map(async (g) => ({
               ...g,
               supervisor: await User.exists({ username: g.supervisor }),
             }))
           )
-      if (!course.groups.teaching && !course.groups.working) {
-        course.groups = undefined
+        }
+
+        if (args.groups.working) {
+          course.groups.working = args.groups.working
+        }
       }
+
       course.partners = !args.partners
         ? undefined
         : await Promise.all(
             args.partners.map(async (p) => await Partner.exists({ code: p }))
           )
+
       course.schedule = !args.schedule
         ? undefined
         : args.schedule.reduce(
@@ -653,6 +662,7 @@ const resolvers = {
             }),
             {}
           )
+
       course.teachers = !args.teachers
         ? undefined
         : await Promise.all(

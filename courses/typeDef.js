@@ -75,6 +75,7 @@ const typeDefs = gql`
 
   type CourseWorkingGroup {
     name: String
+    size: Int
   }
 
   type Course {
@@ -147,6 +148,7 @@ const typeDefs = gql`
 
   input CourseWorkingGroupInput {
     name: String
+    size: Int
   }
 
   input EventInput {
