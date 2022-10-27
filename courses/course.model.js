@@ -102,6 +102,9 @@ const WorkingGroupSchema = new Schema(
       type: String,
       trim: true,
     },
+    size: {
+      type: Number,
+    },
   },
   {
     id: false,
