@@ -2,6 +2,7 @@ import Bugsnag from '@bugsnag/js'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 
+import { canTake } from '../lib/assessments.js'
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
 import {
@@ -16,8 +17,8 @@ function clean(args) {
   cleanArray(args, 'competencies', 'phases')
   cleanField(
     args,
-    'canRequestEvaluation',
     'end',
+    'evaluationRequest',
     'incremental',
     'instances',
     'oralDefense',
@@ -59,7 +60,8 @@ const resolvers = {
   Assessment: {
     // Retrieve whether learners can request an evaluation for this assessment.
     canRequestEvaluation(assessment, _args, _context, _info) {
-      return !!assessment.canRequestEvaluation
+      const now = DateTime.now()
+      return assessment.evaluationRequest && canTake(assessment, now)
     },
     // Retrieve the detailed information about the competencies.
     async competencies(assessment, _args, { models }, _info) {
@@ -637,12 +639,12 @@ const resolvers = {
 
       // Edit the assessment mongoose object.
       for (const field of [
-        'canRequestEvaluation',
         'category',
         'code',
         'competencies',
         'description',
         'end',
+        'evaluationRequest',
         'incremental',
         'instances',
         'load',

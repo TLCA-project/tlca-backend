@@ -65,9 +65,6 @@ const PhaseSchema = new Schema(
 )
 
 const AssessmentSchema = new Schema({
-  canRequestEvaluation: {
-    type: Boolean,
-  },
   category: {
     type: String,
     enum: [
@@ -111,6 +108,9 @@ const AssessmentSchema = new Schema({
   },
   end: {
     type: Date,
+  },
+  evaluationRequest: {
+    type: Boolean,
   },
   event: {
     type: Schema.ObjectId,
