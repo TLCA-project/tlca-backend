@@ -1,3 +1,18 @@
+## 1.1.12 (2022-10-27)
+
+### Features
+
+- **courses:** define working groups for a course (coordinator)
+
+### Improvements
+
+- added checks for the evaluation request against the assessement dates
+
+### Bug Fixes
+
+- **evaluations:** fixed issue with the 'canRequestEvaluation' field by making the difference between the 'evaluationRequest' MongoDB field and the 'canRequestEvaluation' GraphQL field
+- **evaluations:** fixed issue with the 'requestedCompetencies' field that can now be accessed for teachers as an evaluation GraphQL field
+
 ## 1.1.11 (2022-10-24)
 
 ### Features
