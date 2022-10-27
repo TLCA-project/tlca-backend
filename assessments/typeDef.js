@@ -51,6 +51,7 @@ const typeDefs = gql`
     course: Course!
     description: String!
     end: DateTime
+    evaluationRequest: Boolean @auth(requires: TEACHER)
     hasOralDefense: Boolean
     id: ID!
     isClosed: Boolean @auth(requires: [STUDENT, TEACHER])
@@ -119,7 +120,6 @@ const typeDefs = gql`
 
   extend type Mutation {
     createAssessment(
-      canRequestEvaluation: Boolean
       category: AssessmentCategory!
       code: String
       competencies: [AssessmentCompetencyInput!]
@@ -127,6 +127,7 @@ const typeDefs = gql`
       createEvent: Boolean
       description: String!
       end: DateTime
+      evaluationRequest: Boolean
       incremental: Boolean
       instances: Int
       load: AssessmentLoadInput
@@ -142,13 +143,13 @@ const typeDefs = gql`
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     deleteInstance(id: ID!): Boolean @auth(requires: ADMIN)
     editAssessment(
-      canRequestEvaluation: Boolean
       category: AssessmentCategory!
       code: String
       competencies: [AssessmentCompetencyInput!]
       createEvent: Boolean
       description: String!
       end: DateTime
+      evaluationRequest: Boolean
       id: ID!
       incremental: Boolean
       instances: Int

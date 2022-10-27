@@ -1,7 +1,9 @@
 import Bugsnag from '@bugsnag/js'
+import { DateTime } from 'luxon'
 
 import { AuthenticationError, UserInputError } from 'apollo-server'
 
+import { canTake } from '../lib/assessments.js'
 import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
 import { cleanField, cleanString } from '../lib/utils.js'
 
@@ -128,6 +130,10 @@ const resolvers = {
       const evaluation = await Evaluation.findOne({ _id: args.id })
         .populate({
           path: 'competencies.competency',
+          model: 'Competency',
+        })
+        .populate({
+          path: 'requestedCompetencies.competency',
           model: 'Competency',
         })
         .lean()
@@ -629,10 +635,15 @@ const resolvers = {
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id canRequestEvaluation course'
+        '_id evaluationRequest course end start'
       ).lean()
-      if (!assessment || !assessment.canRequestEvaluation) {
+      if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      const now = DateTime.now()
+      if (!assessment.evaluationRequest || !canTake(assessment, now)) {
+        throw new UserInputError('CANNOT_REQUEST_EVALUATION')
       }
 
       // Only possible if the connected user is registered
