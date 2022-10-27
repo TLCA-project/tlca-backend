@@ -41,6 +41,7 @@ const typeDefs = gql`
     published: DateTime
     rejectionReason: String
     requested: DateTime
+    requestedCompetencies: [EvaluationCompetency!] @auth(requires: TEACHER)
     status: EvaluationStatus!
   }
 
