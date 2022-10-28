@@ -1,3 +1,13 @@
+## 1.1.13 (2022-10-28)
+
+### Features
+
+- **assessments:** export evaluation form for a given assessment (teacher)
+
+### Improvements
+
+- improved the handling of assessments with the 'tfq' provider
+
 ## 1.1.12 (2022-10-27)
 
 ### Features
