@@ -321,6 +321,86 @@ const resolvers = {
 
       return await Assessment.find(filter).lean()
     },
+    async exportAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment, Course } = models
+
+      // Retrieve the assessment to export.
+      const assessment = await Assessment.findOne(
+        { _id: args.id },
+        'code competencies course name'
+      )
+        .populate({
+          path: 'competencies.competency',
+          select: 'code name',
+          model: 'Competency',
+        })
+        .lean()
+      if (!assessment) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Retrieve the course competencies.
+      const course = await Course.findOne(
+        { _id: assessment.course },
+        'competencies coordinator teachers'
+      )
+        .lean()
+        .populate({
+          path: 'competencies.competency',
+          select: 'code learningOutcomes',
+          model: 'Competency',
+        })
+      if (
+        !course ||
+        !(isCoordinator(course, user) || isTeacher(course, user))
+      ) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Generate the form to evaluate the assessment.
+      const name =
+        (assessment.code ? assessment.code + ' – ' : '') + assessment.name
+      const competencies = assessment.competencies
+        .map(({ checklist, competency, learningOutcomes }) => {
+          const courseCompetency = course.competencies.find(
+            (c) => c.competency.code === competency.code
+          )
+          const name =
+            (!courseCompetency.useLearningOutcomes ? '[ ] ' : '') +
+            competency.code +
+            ' – ' +
+            competency.name
+          const los = courseCompetency.useLearningOutcomes
+            ? '\n\n  learning outcomes\n' +
+              learningOutcomes
+                .map(
+                  (i) =>
+                    `  * [ ] ${courseCompetency.competency.learningOutcomes[i].name}`
+                )
+                .join('\n')
+            : ''
+          const checklists = checklist
+            ? ['public', 'private'].map((l) =>
+                checklist[l]
+                  ? `\n\n  ${l} checklist\n` +
+                    checklist[l].map((i) => `  * [ ] ${i}`).join('\n')
+                  : ''
+              )
+            : ['', '']
+          return `\n* ${name}${los}${checklists[0]}${checklists[1]}`
+        })
+        .join('\n')
+      const content = `# ${name}\n\n## Competencies\n${competencies}\n\n## Comment\n\n\n## Note\n\n`
+
+      // Generate the markdown result file.
+      const data = {
+        content: Buffer.from(content).toString('base64'),
+        filename: `${assessment.name}_${assessment._id.toString()}.md`,
+        format: 'text/plain',
+      }
+
+      return data
+    },
   },
   Mutation: {
     // Create a new assessment from the specified parameters.
@@ -462,15 +542,18 @@ const resolvers = {
       // Retrieve the assessment for which to create an instance.
       const assessment = await Assessment.findOne(
         { _id: args.id },
-        '_id closed course hidden provider providerConfig'
+        '_id closed course end hidden start provider providerConfig'
       ).lean()
+      if (!assessment) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
       if (
-        !assessment ||
         assessment.closed ||
         assessment.hidden ||
-        !assessment.provider
+        !assessment.provider ||
+        !canTake(assessment, DateTime.now())
       ) {
-        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+        throw new UserInputError('ASSESSMENT_TAKE')
       }
 
       // Check whether the user is registered to the course
@@ -731,7 +814,7 @@ const resolvers = {
         })
         .lean()
       if (!instance) {
-        throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       if (DateTime.now() > DateTime.fromISO(instance.data.deadline)) {
@@ -739,6 +822,10 @@ const resolvers = {
       }
 
       let evaluation = await Evaluation.findOne({ instance: args.id })
+      if (evaluation && !evaluation.ongoing) {
+        throw new UserInputError('TOO_LATE_TO_SAVE')
+      }
+
       if (!evaluation) {
         evaluation = new Evaluation(args)
         evaluation.assessment = instance.assessment._id
@@ -747,16 +834,17 @@ const resolvers = {
         evaluation.user = user.id
       }
       evaluation.data = { answer: args.answer }
+      evaluation.ongoing = !args.finalise
       evaluation.requested = Date.now()
 
       try {
         // Save or update the evaluation into the database.
-        await evaluation.save()
-        return true
+        return await evaluation.save()
       } catch (err) {
-        console.log(err)
-        return false
+        Bugsnag.notify(err)
       }
+
+      return null
     },
     // Show or hide this assessment depending on its visibility.
     async showHideAssessment(_parent, args, { models, user }, _info) {

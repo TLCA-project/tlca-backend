@@ -53,6 +53,13 @@ const resolvers = {
     id(evaluation, _args, _context, _info) {
       return evaluation._id.toString()
     },
+    // Retrieve the instance associated with this evaluation.
+    async instance(evaluation, _args, { models }, _info) {
+      const { AssessmentInstance } = models
+      return await AssessmentInstance.findOne({
+        _id: evaluation.instance,
+      }).lean()
+    },
     // Retrieve whether this evaluation is published.
     isPublished(evaluation, _args, _context, _info) {
       return !!evaluation.published
