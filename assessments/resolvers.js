@@ -542,15 +542,18 @@ const resolvers = {
       // Retrieve the assessment for which to create an instance.
       const assessment = await Assessment.findOne(
         { _id: args.id },
-        '_id closed course hidden provider providerConfig'
+        '_id closed course end hidden start provider providerConfig'
       ).lean()
+      if (!assessment) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
       if (
-        !assessment ||
         assessment.closed ||
         assessment.hidden ||
-        !assessment.provider
+        !assessment.provider ||
+        !canTake(assessment, DateTime.now())
       ) {
-        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+        throw new UserInputError('ASSESSMENT_TAKE')
       }
 
       // Check whether the user is registered to the course
