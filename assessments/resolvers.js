@@ -811,7 +811,7 @@ const resolvers = {
         })
         .lean()
       if (!instance) {
-        throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       if (DateTime.now() > DateTime.fromISO(instance.data.deadline)) {
@@ -819,6 +819,10 @@ const resolvers = {
       }
 
       let evaluation = await Evaluation.findOne({ instance: args.id })
+      if (evaluation && !evaluation.ongoing) {
+        throw new UserInputError('TOO_LATE_TO_SAVE')
+      }
+
       if (!evaluation) {
         evaluation = new Evaluation(args)
         evaluation.assessment = instance.assessment._id
@@ -827,16 +831,17 @@ const resolvers = {
         evaluation.user = user.id
       }
       evaluation.data = { answer: args.answer }
+      evaluation.ongoing = !args.finalise
       evaluation.requested = Date.now()
 
       try {
         // Save or update the evaluation into the database.
-        await evaluation.save()
-        return true
+        return await evaluation.save()
       } catch (err) {
-        console.log(err)
-        return false
+        Bugsnag.notify(err)
       }
+
+      return null
     },
     // Show or hide this assessment depending on its visibility.
     async showHideAssessment(_parent, args, { models, user }, _info) {
