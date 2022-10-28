@@ -321,6 +321,86 @@ const resolvers = {
 
       return await Assessment.find(filter).lean()
     },
+    async exportAssessment(_parent, args, { models, user }, _info) {
+      const { Assessment, Course } = models
+
+      // Retrieve the assessment to export.
+      const assessment = await Assessment.findOne(
+        { _id: args.id },
+        'code competencies course name'
+      )
+        .populate({
+          path: 'competencies.competency',
+          select: 'code name',
+          model: 'Competency',
+        })
+        .lean()
+      if (!assessment) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Retrieve the course competencies.
+      const course = await Course.findOne(
+        { _id: assessment.course },
+        'competencies coordinator teachers'
+      )
+        .lean()
+        .populate({
+          path: 'competencies.competency',
+          select: 'code learningOutcomes',
+          model: 'Competency',
+        })
+      if (
+        !course ||
+        !(isCoordinator(course, user) || isTeacher(course, user))
+      ) {
+        throw new UserInputError('COURSE_NOT_FOUND')
+      }
+
+      // Generate the form to evaluate the assessment.
+      const name =
+        (assessment.code ? assessment.code + ' – ' : '') + assessment.name
+      const competencies = assessment.competencies
+        .map(({ checklist, competency, learningOutcomes }) => {
+          const courseCompetency = course.competencies.find(
+            (c) => c.competency.code === competency.code
+          )
+          const name =
+            (!courseCompetency.useLearningOutcomes ? '[ ] ' : '') +
+            competency.code +
+            ' – ' +
+            competency.name
+          const los = courseCompetency.useLearningOutcomes
+            ? '\n\n  learning outcomes\n' +
+              learningOutcomes
+                .map(
+                  (i) =>
+                    `  * [ ] ${courseCompetency.competency.learningOutcomes[i].name}`
+                )
+                .join('\n')
+            : ''
+          const checklists = checklist
+            ? ['public', 'private'].map((l) =>
+                checklist[l]
+                  ? `\n\n  ${l} checklist\n` +
+                    checklist[l].map((i) => `  * [ ] ${i}`).join('\n')
+                  : ''
+              )
+            : ['', '']
+          return `\n* ${name}${los}${checklists[0]}${checklists[1]}`
+        })
+        .join('\n')
+      const content = `# ${name}\n\n## Competencies\n${competencies}\n\n## Comment\n\n\n## Note\n\n`
+
+      // Generate the markdown result file.
+      const data = {
+        content: Buffer.from(content).toString('base64'),
+        filename: `${assessment.name}_${assessment._id.toString()}.md`,
+        format: 'text/plain',
+      }
+
+      return data
+    },
   },
   Mutation: {
     // Create a new assessment from the specified parameters.

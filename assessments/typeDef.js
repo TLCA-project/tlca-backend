@@ -90,6 +90,7 @@ const typeDefs = gql`
       offset: Int
       open: Boolean
     ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
+    exportAssessment(id: ID!): JSONObject @auth(requires: TEACHER)
   }
 
   input AssessmentChecklistInput {
