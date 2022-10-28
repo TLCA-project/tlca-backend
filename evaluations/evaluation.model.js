@@ -79,6 +79,9 @@ const EvaluationSchema = new Schema({
   note: {
     type: String,
   },
+  ongoing: {
+    type: Boolean,
+  },
   published: {
     type: Date,
   },

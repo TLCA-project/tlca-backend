@@ -90,6 +90,7 @@ const typeDefs = gql`
       offset: Int
       open: Boolean
     ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
+    exportAssessment(id: ID!): JSONObject @auth(requires: TEACHER)
   }
 
   input AssessmentChecklistInput {
@@ -162,8 +163,11 @@ const typeDefs = gql`
       takes: Int
     ): Assessment @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
-    saveAssessmentTake(id: ID!, answer: [[Boolean!]!]!): Boolean
-      @auth(requires: STUDENT)
+    saveAssessmentTake(
+      id: ID!
+      answer: [[Boolean!]!]!
+      finalise: Boolean
+    ): Evaluation @auth(requires: STUDENT)
     showHideAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
   }
 `
