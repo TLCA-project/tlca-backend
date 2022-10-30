@@ -14,7 +14,52 @@ function clean(args) {
 }
 
 function isRequestPending(evaluation) {
-  return evaluation.requested && !(evaluation.accepted || evaluation.rejected)
+  return (
+    evaluation.requested &&
+    !(evaluation.accepted || evaluation.rejected) &&
+    !evaluation.published
+  )
+}
+
+// Create the progress history.
+async function saveProgressHistory(evaluation, assessment, models) {
+  const { ProgressHistory } = models
+
+  const history = []
+  for (const {
+    competency,
+    learningOutcomes,
+    selected,
+  } of evaluation.competencies) {
+    const progressHistory = new ProgressHistory({
+      competency,
+      date: evaluation.evalDate ?? evaluation.date,
+      evaluation: evaluation._id,
+      user: evaluation.user,
+    })
+    const c = assessment.competencies.find(
+      (c) =>
+        (c.competency._id ?? c.competency).toString() === competency.toString()
+    )
+
+    // Save stars history if the competency has been selected.
+    if (selected && (!learningOutcomes || !learningOutcomes.length)) {
+      progressHistory.stars = c.stars
+    }
+    // Save learning outcomes history if at least one has been selected.
+    else if (learningOutcomes?.some((lo) => lo)) {
+      progressHistory.learningOutcomes = learningOutcomes
+        .map((lo, i) => (lo ? c.learningOutcomes[i] : -1))
+        .filter((e) => e !== -1)
+    }
+
+    // Add the history element.
+    if (progressHistory.stars || progressHistory.learningOutcomes) {
+      history.push(progressHistory)
+    }
+  }
+
+  await Promise.all(history.map(async (h) => h.save()))
 }
 
 const resolvers = {
@@ -127,6 +172,14 @@ const resolvers = {
         return 'requested'
       }
       return 'unpublished'
+    },
+  },
+  EvaluationCompetency: {
+    async competency(evaluationCompetency, _args, { models }, _info) {
+      const { Competency } = models
+      return await Competency.findOne({
+        _id: evaluationCompetency.competency,
+      }).lean()
     },
   },
   Query: {
@@ -269,6 +322,105 @@ const resolvers = {
       evaluation.competencies = undefined
 
       try {
+        // Update the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return evaluation
+    },
+    // Correct an evaluation request (for those from an assessment with an external provider).
+    async correctEvaluation(_parent, args, { models, user }, _info) {
+      const { Assessment, Evaluation } = models
+
+      // Retrieve the evaluation to correct.
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Retrieve the course associated to this evaluation.
+      const course = await Evaluation.populate(evaluation, [
+        {
+          path: 'course',
+          select: 'coordinator teachers',
+          model: 'Course',
+        },
+      ]).then((e) => e.course)
+      if (!(isCoordinator(course, user) || isTeacher(course, user))) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Retrieve the assessment associated to this evaluation.
+      const assessment = await Evaluation.populate(evaluation, [
+        {
+          path: 'assessment',
+          select: 'competencies provider providerConfig',
+          model: 'Assessment',
+        },
+      ]).then((e) => e.assessment)
+      if (
+        !assessment ||
+        !assessment.provider ||
+        !isRequestPending(evaluation)
+      ) {
+        throw new UserInputError('EVALUATION_NOT_CORRECTABLE')
+      }
+
+      // Retrieve the competencies associated to the assessment.
+      const competencies = await Assessment.populate(assessment, [
+        {
+          path: 'competencies.competency',
+          select: 'code',
+          model: 'Competency',
+        },
+      ]).then((e) => e.competencies)
+
+      // Retrieve the instance associated to this evaluation.
+      const instance = await Evaluation.populate(evaluation, {
+        path: 'instance',
+        select: 'data',
+        model: 'AssessmentInstance',
+      }).then((e) => e.instance)
+      if (!instance) {
+        throw new UserInputError('EVALUATION_NOT_CORRECTABLE')
+      }
+
+      // Correct the evaluation.
+      switch (assessment.provider) {
+        case 'tfq': {
+          evaluation.competencies = []
+
+          const { questions } = assessment.providerConfig
+          const { answer: selected } = evaluation.data
+
+          questions.forEach((q, i) => {
+            const answer = instance.data.questions[i].select.map(
+              (j) => q.pool[j].answer
+            )
+            const correct = selected[i]
+              .map((v, j) => v === answer[j])
+              .every((v) => v)
+
+            if (correct) {
+              evaluation.competencies.push({
+                competency: competencies.find(
+                  (c) => c.competency.code === q.competency
+                ).competency._id,
+                selected: true,
+              })
+            }
+          })
+
+          break
+        }
+      }
+      evaluation.published = new Date()
+
+      try {
+        await saveProgressHistory(evaluation, assessment, models)
+
         // Update the evaluation into the database.
         return await evaluation.save()
       } catch (err) {
@@ -442,7 +594,7 @@ const resolvers = {
     },
     // TODO: comment
     async publishEvaluation(_parent, args, { models, user }, _info) {
-      const { Evaluation, ProgressHistory } = models
+      const { Evaluation } = models
 
       const evaluation = await Evaluation.findOne({ _id: args.id }).populate([
         {
@@ -545,44 +697,44 @@ const resolvers = {
       }
 
       // Create the progress history.
-      const history = []
-      for (const {
-        competency,
-        learningOutcomes,
-        selected,
-      } of evaluation.competencies) {
-        const progressHistory = new ProgressHistory({
-          competency,
-          date: evaluation.evalDate ?? evaluation.date,
-          evaluation: evaluation._id,
-          user: evaluation.user,
-        })
+      await saveProgressHistory(evaluation, assessment, models)
+      // const history = []
+      // for (const {
+      //   competency,
+      //   learningOutcomes,
+      //   selected,
+      // } of evaluation.competencies) {
+      //   const progressHistory = new ProgressHistory({
+      //     competency,
+      //     date: evaluation.evalDate ?? evaluation.date,
+      //     evaluation: evaluation._id,
+      //     user: evaluation.user,
+      //   })
 
-        // Save stars history if the competency has been selected.
-        if ((!learningOutcomes || !learningOutcomes.length) && selected) {
-          progressHistory.stars = competencies[competency.toString()].stars
-        }
-        // Save learning outcomes history if at least one has been selected.
-        else if (learningOutcomes?.some((lo) => lo)) {
-          progressHistory.learningOutcomes = learningOutcomes
-            .map((lo, i) =>
-              lo ? competencies[competency.toString()].learningOutcomes[i] : -1
-            )
-            .filter((e) => e !== -1)
-        }
+      //   // Save stars history if the competency has been selected.
+      //   if ((!learningOutcomes || !learningOutcomes.length) && selected) {
+      //     progressHistory.stars = competencies[competency.toString()].stars
+      //   }
+      //   // Save learning outcomes history if at least one has been selected.
+      //   else if (learningOutcomes?.some((lo) => lo)) {
+      //     progressHistory.learningOutcomes = learningOutcomes
+      //       .map((lo, i) =>
+      //         lo ? competencies[competency.toString()].learningOutcomes[i] : -1
+      //       )
+      //       .filter((e) => e !== -1)
+      //   }
 
-        // Add the history element.
-        if (progressHistory.stars || progressHistory.learningOutcomes) {
-          history.push(progressHistory)
-        }
-      }
+      //   // Add the history element.
+      //   if (progressHistory.stars || progressHistory.learningOutcomes) {
+      //     history.push(progressHistory)
+      //   }
+      // }
 
       // Publish the evaluation.
       evaluation.published = new Date()
 
       try {
         // Save the evaluation into the database.
-        await Promise.all(history.map(async (h) => h.save()))
         return await evaluation.save()
       } catch (err) {
         Bugsnag.notify(err)
