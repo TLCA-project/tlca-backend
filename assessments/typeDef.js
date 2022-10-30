@@ -73,7 +73,7 @@ const typeDefs = gql`
     assessment: Assessment @auth(requires: ADMIN)
     data: JSONObject @auth(requires: TEACHER)
     datetime: DateTime!
-    content: JSONObject @auth(requires: STUDENT)
+    content: JSONObject @auth(requires: [STUDENT, TEACHER])
     id: ID!
     learner: User @auth(requires: ADMIN)
     nbEvaluations: Int! @auth(requires: ADMIN)
