@@ -85,6 +85,42 @@ const resolvers = {
     created(evaluation, _args, _context, _info) {
       return evaluation.date
     },
+    // Retrieve the data associated to this evaluation.
+    async data(evaluation, _args, { models }, _info) {
+      const { Assessment, AssessmentInstance } = models
+
+      if (evaluation.published) {
+        // Retrieve the instance associated to this evaluation.
+        const instance = await AssessmentInstance.findOne(
+          { _id: evaluation.instance },
+          'data'
+        ).lean()
+
+        // Retrieve the assessment associated to this assessment instance.
+        const assessment = await Assessment.findOne(
+          { _id: evaluation.assessment },
+          'provider providerConfig'
+        ).lean()
+
+        const { provider, providerConfig } = assessment
+
+        switch (provider) {
+          case 'tfq':
+            evaluation.data.answers = instance.data.questions.map((q, i) =>
+              q.select.map((item, j) => {
+                const question = providerConfig.questions[i].pool[item]
+                return {
+                  feedback: question.feedback,
+                  correct: evaluation.data.answer[i][j] === question.answer,
+                }
+              })
+            )
+            break
+        }
+      }
+
+      return evaluation.data
+    },
     // Retrieve the date the evaluation was taken.
     date(evaluation, _args, _context, _info) {
       return evaluation.evalDate || evaluation.date
@@ -416,6 +452,7 @@ const resolvers = {
           break
         }
       }
+      evaluation.evaluator = user.id
       evaluation.published = new Date()
 
       try {
