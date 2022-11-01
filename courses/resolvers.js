@@ -99,6 +99,13 @@ const resolvers = {
     hasAdvancedCompetencies(course, _args, _context, _info) {
       return course.competencies.some((c) => c.category === 'advanced')
     },
+    // Check whether this courses has groups (teaching or working).
+    hasGroups(course, _args, _context, _info) {
+      return (
+        !!course.groups &&
+        ['teaching', 'working'].some((g) => course.groups[g]?.length > 0)
+      )
+    },
     hasTeachingGroups(course, _args, _context, _info) {
       return course.groups?.teaching?.length
     },
