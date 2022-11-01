@@ -63,22 +63,6 @@ const resolvers = {
       const now = DateTime.now()
       return assessment.evaluationRequest && canTake(assessment, now)
     },
-    // Retrieve the detailed information about the competencies.
-    async competencies(assessment, _args, { models }, _info) {
-      const { Assessment } = models
-
-      if (assessment.phased) {
-        return null
-      }
-      return await Assessment.populate(assessment, [
-        {
-          path: 'competencies.competency',
-          model: 'Competency',
-        },
-      ]).then((a) =>
-        a.competencies.map((c) => ({ ...c, isOptional: c.optional }))
-      )
-    },
     // Retrieve whether this assessment has an oral defense.
     hasOralDefense(assessment, _args, _context, _info) {
       return !!assessment.oralDefense
@@ -108,6 +92,17 @@ const resolvers = {
         return 'phased'
       }
       return 'single_take'
+    },
+  },
+  AssessmentCompetency: {
+    async competency(assessmentCompetency, _args, { models }, _info) {
+      const { Competency } = models
+      return await Competency.findOne({
+        _id: assessmentCompetency.competency,
+      }).lean()
+    },
+    isOptional(assessmentCompetency, _args, _context, _info) {
+      return assessmentCompetency.optional
     },
   },
   AssessmentInstance: {
