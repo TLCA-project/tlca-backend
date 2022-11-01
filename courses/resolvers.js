@@ -96,22 +96,6 @@ const resolvers = {
 
       return await User.findOne({ _id: course.coordinator })
     },
-    async groups(course, _args, { models, user }, _info) {
-      const { Course } = models
-
-      return {
-        teaching: await Course.populate(course, [
-          { path: 'groups.teaching.supervisor', model: 'User' },
-        ]).then(
-          (a) =>
-            a.groups?.teaching.map((g) => ({
-              ...g,
-              isSupervisor: g.supervisor._id.toString() === user.id,
-            })) || []
-        ),
-        working: course.groups?.working || [],
-      }
-    },
     hasAdvancedCompetencies(course, _args, _context, _info) {
       return course.competencies.some((c) => c.category === 'advanced')
     },
@@ -196,6 +180,18 @@ const resolvers = {
 
       return null
     },
+    // Retrieve the teachers of this course.
+    async teachers(course, _args, { models }, _info) {
+      if (!course.teachers || !course.teachers.length) {
+        return null
+      }
+
+      const { User } = models
+
+      return await Promise.all(
+        course.teachers.map(async (t) => await User.findOne({ _id: t }))
+      )
+    },
     team(course, _args, _context, _info) {
       const team = []
 
@@ -222,6 +218,22 @@ const resolvers = {
     // workingGroups(course, _args, _context, _info) {
     //   return course.groups?.working
     // },
+  },
+  CourseGroup: {
+    async teaching(group, _args, { models }, _info) {
+      const { User } = models
+
+      if (!group.teaching) {
+        return null
+      }
+
+      return await Promise.all(
+        group.teaching.map(async (g) => ({
+          ...g,
+          supervisor: await User.findOne({ _id: g.supervisor }),
+        }))
+      )
+    },
   },
   Query: {
     async courses(_parent, args, { models, user }, _info) {
@@ -384,9 +396,9 @@ const resolvers = {
 
       // Rename the 'id' field of the coordinator and teachers
       course.coordinator.id = course.coordinator._id.toString()
-      if (course.teachers) {
-        course.teachers.forEach((t) => (t.id = t._id.toString()))
-      }
+      // if (course.teachers) {
+      //   course.teachers.forEach((t) => (t.id = t._id.toString()))
+      // }
 
       // Restructure the format of the schedule
       if (course.schedule) {
