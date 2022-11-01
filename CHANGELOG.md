@@ -1,3 +1,14 @@
+## 1.1.14 (2022-11-01)
+
+### Features
+
+- **evaluations:** correct evaluations from assessment with the 'tfq' provider (teacher)
+- **evaluations:** display solution and feedback for evaluations from assessment with the 'tfq' provider (teacher)
+
+### Code Refactoring
+
+- refactored several pieces of code (increasing the visibility of several fields, defining resolvers specific to GraphQL 'secondary' types)
+
 ## 1.1.13 (2022-10-28)
 
 ### Features
