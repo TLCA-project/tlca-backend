@@ -5,12 +5,57 @@ import { AuthenticationError, UserInputError } from 'apollo-server'
 
 import { canTake } from '../lib/assessments.js'
 import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
-import { cleanField, cleanString } from '../lib/utils.js'
+import {
+  cleanArray,
+  cleanField,
+  cleanObject,
+  cleanString,
+} from '../lib/utils.js'
 
 // Clean up the optional args related to an assessment.
 function clean(args) {
-  cleanField(args, 'accepted', 'evalDate', 'published', 'rejected', 'requested')
+  cleanField(
+    args,
+    'accepted',
+    'evalDate',
+    'instance',
+    'published',
+    'rejected',
+    'requested'
+  )
   cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason')
+
+  // Clean up each competency.
+  for (const competency of args.competencies) {
+    const { checklist, learningOutcomes } = competency
+
+    if (checklist) {
+      for (const t of ['private', 'public']) {
+        if (checklist[t]?.every((i) => !i)) {
+          competency.checklist[t] = undefined
+        }
+        cleanArray(checklist, t)
+      }
+    }
+    cleanObject(competency, 'checklist')
+
+    if (learningOutcomes) {
+      if (learningOutcomes.every((lo) => !lo)) {
+        competency.learningOutcomes = undefined
+      }
+      cleanArray(competency, 'learningOutcomes')
+    }
+
+    if (
+      !competency.selected &&
+      !competency.checklist &&
+      !competency.learningOutcomes
+    ) {
+      competency.delete = true
+    }
+  }
+
+  args.competencies = args.competencies.filter((c) => !c.delete)
 }
 
 function isRequestPending(evaluation) {
@@ -483,28 +528,38 @@ const resolvers = {
       // Retrieve the assessment for which to create an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id course'
+        'course instances'
       ).lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
+      // Retrieve the existing instances for the same assessment.
+      const instancesNb = await AssessmentInstance.countDocuments({
+        assessment: assessment._id,
+        user: learner._id,
+      })
+      if (assessment.instances && assessment.instances === instancesNb) {
+        throw new UserInputError('INSTANCE_CREATE')
+      }
+
       // Retrieve the assessment instance for which to create an evaluation
       // or create a new one.
-      let instance = null
-      if (args.instance) {
-        instance = await AssessmentInstance.findOne(
-          { _id: args.instance, assessment: assessment._id, user: learner._id },
-          '_id assessment'
-        )
-        if (!instance) {
-          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
-        }
-      } else {
-        instance = new AssessmentInstance({
-          assessment: assessment._id,
-          user: learner._id,
-        })
+      const instance = args.instance
+        ? await AssessmentInstance.findOne(
+            {
+              _id: args.instance,
+              assessment: assessment._id,
+              user: learner._id,
+            },
+            'assessment'
+          ).lean()
+        : new AssessmentInstance({
+            assessment: assessment._id,
+            user: learner._id,
+          })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       // Save the evaluation into the database.
@@ -520,7 +575,7 @@ const resolvers = {
             competency: await Competency.exists({ code: c.competency }),
           }))
         )
-        evaluation.course = assessment.course._id
+        evaluation.course = assessment.course
         evaluation.evaluator = user.id
         evaluation.instance = instance._id
         evaluation.user = learner._id
@@ -629,22 +684,16 @@ const resolvers = {
 
       return null
     },
-    // TODO: comment
+    // Publish an evaluation that is not yet published
+    // and save the associated possible progress history.
     async publishEvaluation(_parent, args, { models, user }, _info) {
       const { Evaluation } = models
 
-      const evaluation = await Evaluation.findOne({ _id: args.id }).populate([
-        {
-          path: 'assessment',
-          select: 'competencies incremental takes',
-          model: 'Assessment',
-        },
-        {
-          path: 'course',
-          select: 'coordinator',
-          model: 'Course',
-        },
-      ])
+      const evaluation = await Evaluation.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
       if (!evaluation) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
@@ -659,28 +708,35 @@ const resolvers = {
         throw new UserInputError('NOT_AUTHORISED')
       }
 
-      // Retrieve all the existing evaluations for the same assessment instance.
+      // Retrieve all the published evaluations that are
+      // related to same assessment instance.
       const evaluations = await Evaluation.find(
         {
           instance: evaluation.instance,
           published: { $exists: true },
         },
-        '_id competencies date evalDate published'
-      ).lean()
+        'competencies date evalDate published'
+      )
+        .lean()
+        .then((result) =>
+          result
+            .map((e) => ({
+              ...e,
+              evalDate: e.evalDate ?? e.date,
+            }))
+            .sort((a, b) => (a.evalDate > b.evalDate ? 1 : -1))
+        )
       if (!evaluations) {
-        throw new UserInputError('EVALUATION_PUBLICATION_FAILED')
+        throw new UserInputError('EVALUATION_PUBLISH')
       }
 
-      // Sort the published evaluations by evaluation date.
-      evaluations.forEach((e) => {
-        if (!e.evalDate) {
-          e.evalDate = e.date
-        }
-      })
-      evaluations.sort((a, b) => (a.evalDate > b.evalDate ? 1 : -1))
-
       // Check the constraints related to the assessment.
-      const assessment = evaluation.assessment
+      const assessment = await Evaluation.populate(evaluation, {
+        path: 'assessment',
+        selected: 'competencies incremental takes',
+        model: 'Assessment',
+      }).then((e) => e.assessment)
+
       if (
         (!assessment.incremental && evaluations.length > 0) ||
         (assessment.incremental &&
