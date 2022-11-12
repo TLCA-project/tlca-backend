@@ -53,6 +53,7 @@ const typeDefs = gql`
     end: DateTime
     evaluationRequest: Boolean @auth(requires: TEACHER)
     hasOralDefense: Boolean
+    hasProvider: Boolean
     id: ID!
     isClosed: Boolean @auth(requires: [STUDENT, TEACHER])
     isHidden: Boolean @auth(requires: TEACHER)

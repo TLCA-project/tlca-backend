@@ -22,6 +22,7 @@ const typeDefs = gql`
   }
 
   type Evaluation {
+    accepted: DateTime @auth(requires: TEACHER)
     assessment: Assessment!
     comment: String
     competencies: [EvaluationCompetency!]
@@ -39,6 +40,7 @@ const typeDefs = gql`
     note: String @auth(requires: TEACHER)
     pastCompetencies: [EvaluationCompetency!]
     published: DateTime
+    rejected: DateTime @auth(requires: TEACHER)
     rejectionReason: String
     requested: DateTime
     requestedCompetencies: [EvaluationCompetency!] @auth(requires: TEACHER)

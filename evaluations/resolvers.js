@@ -5,12 +5,60 @@ import { AuthenticationError, UserInputError } from 'apollo-server'
 
 import { canTake } from '../lib/assessments.js'
 import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
-import { cleanField, cleanString } from '../lib/utils.js'
+import {
+  cleanArray,
+  cleanField,
+  cleanObject,
+  cleanString,
+} from '../lib/utils.js'
 
 // Clean up the optional args related to an assessment.
 function clean(args) {
-  cleanField(args, 'accepted', 'evalDate', 'published', 'rejected', 'requested')
+  cleanField(
+    args,
+    'accepted',
+    'evalDate',
+    'instance',
+    'published',
+    'rejected',
+    'requested'
+  )
   cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason')
+
+  // Clean up each competency.
+  for (const competency of args.competencies) {
+    const { checklist, learningOutcomes } = competency
+
+    if (checklist) {
+      for (const t of ['private', 'public']) {
+        if (checklist[t]?.every((i) => !i)) {
+          competency.checklist[t] = undefined
+        }
+        cleanArray(checklist, t)
+      }
+    }
+    cleanObject(competency, 'checklist')
+
+    if (learningOutcomes) {
+      if (learningOutcomes.every((lo) => !lo)) {
+        competency.learningOutcomes = undefined
+      }
+      cleanArray(competency, 'learningOutcomes')
+    }
+
+    if (
+      !competency.selected &&
+      !competency.checklist &&
+      !competency.learningOutcomes
+    ) {
+      competency.delete = true
+    }
+
+    cleanField(competency, 'selected')
+  }
+
+  args.competencies = args.competencies.filter((c) => !c.delete)
+  cleanArray(args, 'competencies')
 }
 
 function isRequestPending(evaluation) {
@@ -123,7 +171,7 @@ const resolvers = {
     },
     // Retrieve the date the evaluation was taken.
     date(evaluation, _args, _context, _info) {
-      return evaluation.evalDate || evaluation.date
+      return evaluation.evalDate ?? evaluation.accepted ?? evaluation.date
     },
     // Retrieve the evaluator who created this evaluation.
     async evaluator(evaluation, _args, { models }, _info) {
@@ -483,28 +531,38 @@ const resolvers = {
       // Retrieve the assessment for which to create an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id course'
+        'course instances'
       ).lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
+      // Retrieve the existing instances for the same assessment.
+      const instancesNb = await AssessmentInstance.countDocuments({
+        assessment: assessment._id,
+        user: learner._id,
+      })
+      if (assessment.instances && assessment.instances === instancesNb) {
+        throw new UserInputError('INSTANCE_CREATE')
+      }
+
       // Retrieve the assessment instance for which to create an evaluation
       // or create a new one.
-      let instance = null
-      if (args.instance) {
-        instance = await AssessmentInstance.findOne(
-          { _id: args.instance, assessment: assessment._id, user: learner._id },
-          '_id assessment'
-        )
-        if (!instance) {
-          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
-        }
-      } else {
-        instance = new AssessmentInstance({
-          assessment: assessment._id,
-          user: learner._id,
-        })
+      const instance = args.instance
+        ? await AssessmentInstance.findOne(
+            {
+              _id: args.instance,
+              assessment: assessment._id,
+              user: learner._id,
+            },
+            'assessment'
+          ).lean()
+        : new AssessmentInstance({
+            assessment: assessment._id,
+            user: learner._id,
+          })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       // Save the evaluation into the database.
@@ -520,7 +578,7 @@ const resolvers = {
             competency: await Competency.exists({ code: c.competency }),
           }))
         )
-        evaluation.course = assessment.course._id
+        evaluation.course = assessment.course
         evaluation.evaluator = user.id
         evaluation.instance = instance._id
         evaluation.user = learner._id
@@ -589,28 +647,49 @@ const resolvers = {
 
       // Retrieve the evaluation to edit.
       const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
       if (
-        !evaluation ||
         !isEvaluator(evaluation, user) ||
         evaluation.published ||
+        evaluation.rejected ||
         (evaluation.requested && !evaluation.accepted)
       ) {
-        throw new UserInputError('EVALUATION_NOT_FOUND')
+        throw new UserInputError('EVALUATION_NOT_EDITABLE')
       }
 
       // Clean up the optional args.
       clean(args)
 
+      // Remove 'evalDate' if the same as 'accepted', when present.
+      if (
+        evaluation.accepted &&
+        DateTime.fromJSDate(evaluation.accepted).equals(
+          DateTime.fromISO(args.evalDate)
+        )
+      ) {
+        delete args.evalDate
+      }
+
+      // When editing an accepted evaluation,
+      // the evaluation date should be changed to the current date.
+      if (evaluation.accepted && !args.evalDate) {
+        args.evalDate = Date.now()
+      }
+
       // Edit the evaluation mongoose object.
       for (const field of ['comment', 'evalDate', 'note']) {
         evaluation[field] = args[field]
       }
-      evaluation.competencies = await Promise.all(
-        args.competencies.map(async (c) => ({
-          ...c,
-          competency: await Competency.exists({ code: c.competency }),
-        }))
-      )
+      evaluation.competencies = args.competencies
+        ? await Promise.all(
+            args.competencies.map(async (c) => ({
+              ...c,
+              competency: await Competency.exists({ code: c.competency }),
+            }))
+          )
+        : undefined
 
       // Save the assessment into the database.
       try {
@@ -629,22 +708,16 @@ const resolvers = {
 
       return null
     },
-    // TODO: comment
+    // Publish an evaluation that is not yet published
+    // and save the associated possible progress history.
     async publishEvaluation(_parent, args, { models, user }, _info) {
       const { Evaluation } = models
 
-      const evaluation = await Evaluation.findOne({ _id: args.id }).populate([
-        {
-          path: 'assessment',
-          select: 'competencies incremental takes',
-          model: 'Assessment',
-        },
-        {
-          path: 'course',
-          select: 'coordinator',
-          model: 'Course',
-        },
-      ])
+      const evaluation = await Evaluation.findOne({ _id: args.id }).populate({
+        path: 'course',
+        select: 'coordinator',
+        model: 'Course',
+      })
       if (!evaluation) {
         throw new UserInputError('EVALUATION_NOT_FOUND')
       }
@@ -653,34 +726,43 @@ const resolvers = {
       // and only its evaluator or the associated course coordinator can publish it.
       if (
         evaluation.published ||
-        (!isEvaluator(evaluation, user) &&
-          !isCoordinator(evaluation.course, user))
+        !(
+          isEvaluator(evaluation, user) ||
+          isCoordinator(evaluation.course, user)
+        )
       ) {
         throw new UserInputError('NOT_AUTHORISED')
       }
 
-      // Retrieve all the existing evaluations for the same assessment instance.
+      // Retrieve all the published evaluations that are
+      // related to same assessment instance.
       const evaluations = await Evaluation.find(
         {
           instance: evaluation.instance,
           published: { $exists: true },
         },
-        '_id competencies date evalDate published'
-      ).lean()
+        'competencies date evalDate published'
+      )
+        .lean()
+        .then((result) =>
+          result
+            .map((e) => ({
+              ...e,
+              evalDate: e.evalDate ?? e.date,
+            }))
+            .sort((a, b) => (a.evalDate > b.evalDate ? 1 : -1))
+        )
       if (!evaluations) {
-        throw new UserInputError('EVALUATION_PUBLICATION_FAILED')
+        throw new UserInputError('EVALUATION_PUBLISH')
       }
 
-      // Sort the published evaluations by evaluation date.
-      evaluations.forEach((e) => {
-        if (!e.evalDate) {
-          e.evalDate = e.date
-        }
-      })
-      evaluations.sort((a, b) => (a.evalDate > b.evalDate ? 1 : -1))
-
       // Check the constraints related to the assessment.
-      const assessment = evaluation.assessment
+      const assessment = await Evaluation.populate(evaluation, {
+        path: 'assessment',
+        selected: 'competencies incremental takes',
+        model: 'Assessment',
+      }).then((e) => e.assessment)
+
       if (
         (!assessment.incremental && evaluations.length > 0) ||
         (assessment.incremental &&
@@ -714,58 +796,29 @@ const resolvers = {
         })
       })
 
-      // Check the constraints related to the acquired competencies.
-      for (const c of evaluation.competencies) {
-        const competency = competencies[c.competency.toString()]
+      // Check the constraints related to the acquired competencies
+      // and create the progress history.
+      if (evaluation.competencies) {
+        for (const c of evaluation.competencies) {
+          const competency = competencies[c.competency.toString()]
 
-        if (c.selected && competency.selected) {
-          throw new UserInputError('INVALID_EVALUATION')
-        }
-
-        if (c.learningOutcomes?.length) {
-          if (
-            c.learningOutcomes.some(
-              (lo, i) => lo && competency.acquiredLearningOutcomes[i]
-            )
-          ) {
+          if (c.selected && competency.selected) {
             throw new UserInputError('INVALID_EVALUATION')
           }
+
+          if (c.learningOutcomes?.length) {
+            if (
+              c.learningOutcomes.some(
+                (lo, i) => lo && competency.acquiredLearningOutcomes[i]
+              )
+            ) {
+              throw new UserInputError('INVALID_EVALUATION')
+            }
+          }
         }
+
+        await saveProgressHistory(evaluation, assessment, models)
       }
-
-      // Create the progress history.
-      await saveProgressHistory(evaluation, assessment, models)
-      // const history = []
-      // for (const {
-      //   competency,
-      //   learningOutcomes,
-      //   selected,
-      // } of evaluation.competencies) {
-      //   const progressHistory = new ProgressHistory({
-      //     competency,
-      //     date: evaluation.evalDate ?? evaluation.date,
-      //     evaluation: evaluation._id,
-      //     user: evaluation.user,
-      //   })
-
-      //   // Save stars history if the competency has been selected.
-      //   if ((!learningOutcomes || !learningOutcomes.length) && selected) {
-      //     progressHistory.stars = competencies[competency.toString()].stars
-      //   }
-      //   // Save learning outcomes history if at least one has been selected.
-      //   else if (learningOutcomes?.some((lo) => lo)) {
-      //     progressHistory.learningOutcomes = learningOutcomes
-      //       .map((lo, i) =>
-      //         lo ? competencies[competency.toString()].learningOutcomes[i] : -1
-      //       )
-      //       .filter((e) => e !== -1)
-      //   }
-
-      //   // Add the history element.
-      //   if (progressHistory.stars || progressHistory.learningOutcomes) {
-      //     history.push(progressHistory)
-      //   }
-      // }
 
       // Publish the evaluation.
       evaluation.published = new Date()

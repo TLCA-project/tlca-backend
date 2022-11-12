@@ -1,3 +1,24 @@
+## 1.1.15 (2022-11-12)
+
+### Features
+
+- **registrations:** get the progress associated to a registration for a given course and a given learner (teacher)
+
+### Improvements
+
+- added two fields to the evaluation GraphQL type definition (accepted and rejected dates) and one to the assessment GraphQL type definition (hasProvider)
+- set the evaluation date to the accept date for evaluation upon first edit (if none is provided)
+
+### Code Refactoring
+
+- refactored evaluations args cleaning function
+- refactored registrations related resolver by simplifying the code args
+
+### Bug Fixes
+
+- **evaluations:** fixed issue when publishing an evaluation without any competencies
+- **evaluations:** fixed issue with a wrong check on instances constraint when creating a new evaluation
+
 ## 1.1.14 (2022-11-01)
 
 ### Features

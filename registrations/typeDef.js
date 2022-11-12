@@ -35,7 +35,7 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    registration(courseCode: ID, programCode: ID): Registration @auth
+    registration(code: ID!, learner: ID): Registration @auth
     registrations(
       confirmed: Boolean
       courseCode: ID
