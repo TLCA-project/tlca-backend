@@ -53,9 +53,12 @@ function clean(args) {
     ) {
       competency.delete = true
     }
+
+    cleanField(competency, 'selected')
   }
 
   args.competencies = args.competencies.filter((c) => !c.delete)
+  cleanArray(args, 'competencies')
 }
 
 function isRequestPending(evaluation) {
@@ -168,7 +171,7 @@ const resolvers = {
     },
     // Retrieve the date the evaluation was taken.
     date(evaluation, _args, _context, _info) {
-      return evaluation.evalDate || evaluation.date
+      return evaluation.evalDate ?? evaluation.accepted ?? evaluation.date
     },
     // Retrieve the evaluator who created this evaluation.
     async evaluator(evaluation, _args, { models }, _info) {
@@ -644,28 +647,49 @@ const resolvers = {
 
       // Retrieve the evaluation to edit.
       const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
       if (
-        !evaluation ||
         !isEvaluator(evaluation, user) ||
         evaluation.published ||
+        evaluation.rejected ||
         (evaluation.requested && !evaluation.accepted)
       ) {
-        throw new UserInputError('EVALUATION_NOT_FOUND')
+        throw new UserInputError('EVALUATION_NOT_EDITABLE')
       }
 
       // Clean up the optional args.
       clean(args)
 
+      // Remove 'evalDate' if the same as 'accepted', when present.
+      if (
+        evaluation.accepted &&
+        DateTime.fromJSDate(evaluation.accepted).equals(
+          DateTime.fromISO(args.evalDate)
+        )
+      ) {
+        delete args.evalDate
+      }
+
+      // When editing an accepted evaluation,
+      // the evaluation date should be changed to the current date.
+      if (evaluation.accepted && !args.evalDate) {
+        args.evalDate = Date.now()
+      }
+
       // Edit the evaluation mongoose object.
       for (const field of ['comment', 'evalDate', 'note']) {
         evaluation[field] = args[field]
       }
-      evaluation.competencies = await Promise.all(
-        args.competencies.map(async (c) => ({
-          ...c,
-          competency: await Competency.exists({ code: c.competency }),
-        }))
-      )
+      evaluation.competencies = args.competencies
+        ? await Promise.all(
+            args.competencies.map(async (c) => ({
+              ...c,
+              competency: await Competency.exists({ code: c.competency }),
+            }))
+          )
+        : undefined
 
       // Save the assessment into the database.
       try {
@@ -702,8 +726,10 @@ const resolvers = {
       // and only its evaluator or the associated course coordinator can publish it.
       if (
         evaluation.published ||
-        (!isEvaluator(evaluation, user) &&
-          !isCoordinator(evaluation.course, user))
+        !(
+          isEvaluator(evaluation, user) ||
+          isCoordinator(evaluation.course, user)
+        )
       ) {
         throw new UserInputError('NOT_AUTHORISED')
       }
@@ -770,58 +796,29 @@ const resolvers = {
         })
       })
 
-      // Check the constraints related to the acquired competencies.
-      for (const c of evaluation.competencies) {
-        const competency = competencies[c.competency.toString()]
+      // Check the constraints related to the acquired competencies
+      // and create the progress history.
+      if (evaluation.competencies) {
+        for (const c of evaluation.competencies) {
+          const competency = competencies[c.competency.toString()]
 
-        if (c.selected && competency.selected) {
-          throw new UserInputError('INVALID_EVALUATION')
-        }
-
-        if (c.learningOutcomes?.length) {
-          if (
-            c.learningOutcomes.some(
-              (lo, i) => lo && competency.acquiredLearningOutcomes[i]
-            )
-          ) {
+          if (c.selected && competency.selected) {
             throw new UserInputError('INVALID_EVALUATION')
           }
+
+          if (c.learningOutcomes?.length) {
+            if (
+              c.learningOutcomes.some(
+                (lo, i) => lo && competency.acquiredLearningOutcomes[i]
+              )
+            ) {
+              throw new UserInputError('INVALID_EVALUATION')
+            }
+          }
         }
+
+        await saveProgressHistory(evaluation, assessment, models)
       }
-
-      // Create the progress history.
-      await saveProgressHistory(evaluation, assessment, models)
-      // const history = []
-      // for (const {
-      //   competency,
-      //   learningOutcomes,
-      //   selected,
-      // } of evaluation.competencies) {
-      //   const progressHistory = new ProgressHistory({
-      //     competency,
-      //     date: evaluation.evalDate ?? evaluation.date,
-      //     evaluation: evaluation._id,
-      //     user: evaluation.user,
-      //   })
-
-      //   // Save stars history if the competency has been selected.
-      //   if ((!learningOutcomes || !learningOutcomes.length) && selected) {
-      //     progressHistory.stars = competencies[competency.toString()].stars
-      //   }
-      //   // Save learning outcomes history if at least one has been selected.
-      //   else if (learningOutcomes?.some((lo) => lo)) {
-      //     progressHistory.learningOutcomes = learningOutcomes
-      //       .map((lo, i) =>
-      //         lo ? competencies[competency.toString()].learningOutcomes[i] : -1
-      //       )
-      //       .filter((e) => e !== -1)
-      //   }
-
-      //   // Add the history element.
-      //   if (progressHistory.stars || progressHistory.learningOutcomes) {
-      //     history.push(progressHistory)
-      //   }
-      // }
 
       // Publish the evaluation.
       evaluation.published = new Date()
