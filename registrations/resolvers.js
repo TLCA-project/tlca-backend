@@ -126,24 +126,45 @@ const resolvers = {
   },
   Query: {
     async registration(_parent, args, { models, user }, _info) {
-      const { Course, Program, Registration } = models
+      const { Course, Program, Registration, User } = models
 
-      // Only consider registrations of the connected user.
+      // By default, only consider registrations of the connected user.
       const filter = { user: user.id }
 
+      // Retrieve the learner, if any.
+      const learner = args.learner
+        ? await User.exists({ username: args.learner })
+        : null
+      if (args.learner && !learner) {
+        throw new UserInputError('LEARNER_NOT_FOUND')
+      }
+
       // Retrieve the registration associated to a given course.
-      if (args.courseCode) {
-        const course = await Course.exists({ code: args.courseCode })
+      if (args.code) {
+        const course = await Course.findOne(
+          { code: args.code },
+          'coordinator teachers'
+        ).lean()
         if (!course) {
           throw new UserInputError('COURSE_NOT_FOUND')
         }
 
         filter.course = course._id
+
+        if (
+          learner &&
+          (isCoordinator(course, user) || isTeacher(course, user))
+        ) {
+          filter.user = learner._id
+        }
       }
 
       // Retrieve the registration associated to a given program.
-      if (args.programCode) {
-        const program = await Program.exists({ code: args.programCode })
+      if (args.code && !filter.course) {
+        const program = await Program.findOne(
+          { code: args.code },
+          'coordinator'
+        ).lean()
         if (!program) {
           throw new UserInputError('PROGRAM_NOT_FOUND')
         }
