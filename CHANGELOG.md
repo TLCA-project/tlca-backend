@@ -1,3 +1,9 @@
+## 1.1.16 (2022-11-14)
+
+### Bug Fixes
+
+- **evaluations:** fixed issue when creating an evaluation without any competencies
+
 ## 1.1.15 (2022-11-12)
 
 ### Features
