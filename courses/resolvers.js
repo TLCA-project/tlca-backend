@@ -227,7 +227,7 @@ const resolvers = {
     // },
   },
   CourseGroup: {
-    async teaching(group, _args, { models }, _info) {
+    async teaching(group, _args, { models, user }, _info) {
       const { User } = models
 
       if (!group.teaching) {
@@ -237,6 +237,7 @@ const resolvers = {
       return await Promise.all(
         group.teaching.map(async (g) => ({
           ...g,
+          isSupervisor: g.supervisor._id.toString() === user.id,
           supervisor: await User.findOne({ _id: g.supervisor }),
         }))
       )

@@ -87,6 +87,10 @@ const resolvers = {
     isIncremental(assessment, _args, _context, _info) {
       return !!assessment.incremental
     },
+    // Retrieve the number of phases for this assessment, if any.
+    nbPhases(assessment, _args, _context, _info) {
+      return assessment.phases?.length
+    },
     // Retrieve the type of this assessment.
     type(assessment, _args, _content, _info) {
       if (assessment.incremental) {
