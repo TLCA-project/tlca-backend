@@ -110,11 +110,13 @@ const resolvers = {
       const advanced = competencies.filter((c) => c.category === 'advanced')
 
       return {
-        advanced: Math.trunc(
-          (advanced.reduce((acc, c) => acc + c.innerProgress, 0) /
-            (advanced.length * 5)) *
-            100
-        ),
+        advanced: advanced.length
+          ? Math.trunc(
+              (advanced.reduce((acc, c) => acc + c.innerProgress, 0) /
+                (advanced.length * 5)) *
+                100
+            )
+          : null,
         basic: Math.trunc(
           (basic.reduce((acc, c) => acc + c.innerProgress, 0) /
             (basic.length * 5)) *

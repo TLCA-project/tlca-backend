@@ -1,3 +1,13 @@
+## 1.1.17 (2022-11-15)
+
+### Improvements
+
+- added one field to the assessment GraphQL type definition (nbPhases)
+
+### Bug Fixes
+
+- **evaluations:** fixed issue when requesting an evaluation without any competencies
+
 ## 1.1.16 (2022-11-14)
 
 ### Bug Fixes

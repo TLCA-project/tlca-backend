@@ -110,6 +110,23 @@ async function saveProgressHistory(evaluation, assessment, models) {
   await Promise.all(history.map(async (h) => h.save()))
 }
 
+// Retrieve the status of an evaluation.
+function status(evaluation) {
+  if (evaluation.published) {
+    return 'published'
+  }
+  if (evaluation.requested) {
+    if (evaluation.accepted) {
+      return 'accepted'
+    }
+    if (evaluation.rejected) {
+      return 'rejected'
+    }
+    return 'requested'
+  }
+  return 'unpublished'
+}
+
 const resolvers = {
   EvaluationStatus: {
     ACCEPTED: 'accepted',
@@ -243,19 +260,7 @@ const resolvers = {
     // Retrieve the status of this evaluation
     // according to it's publication date.
     status(evaluation, _args, _content, _info) {
-      if (evaluation.published) {
-        return 'published'
-      }
-      if (evaluation.requested) {
-        if (evaluation.accepted) {
-          return 'accepted'
-        }
-        if (evaluation.rejected) {
-          return 'rejected'
-        }
-        return 'requested'
-      }
-      return 'unpublished'
+      return status(evaluation)
     },
   },
   EvaluationCompetency: {
@@ -643,6 +648,45 @@ const resolvers = {
 
       return false
     },
+    // Delete an existing evaluation request.
+    async deleteEvaluationRequest(_parent, args, { models, user }, _info) {
+      const { AssessmentInstance, Evaluation } = models
+
+      // Retrieve the evaluation to delete.
+      const evaluation = await Evaluation.findOne(
+        { _id: args.id },
+        'instance requested published user'
+      ).lean()
+      if (
+        !evaluation ||
+        evaluation.user.toString() !== user.id ||
+        status(evaluation) !== 'requested'
+      ) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Retrieve the total number of evaluations
+      // associated to the same instance.
+      const evaluationsNb = await Evaluation.countDocuments({
+        instance: evaluation.instance,
+      })
+
+      try {
+        // If there is only one evaluation associated
+        // to the instance, delete it.
+        if (evaluationsNb === 1) {
+          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
+        }
+
+        // Delete the evaluation.
+        await Evaluation.deleteOne({ _id: args.id })
+        return true
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return false
+    },
     // Edit an existing evaluation from the specified parameters.
     async editEvaluation(_parent, args, { models, user }, _info) {
       const { Competency, Evaluation } = models
@@ -933,12 +977,14 @@ const resolvers = {
         // Create the evaluation Mongoose object.
         const evaluation = new Evaluation(args)
         evaluation.assessment = assessment._id
-        evaluation.competencies = await Promise.all(
-          args.competencies.map(async (c) => ({
-            ...c,
-            competency: await Competency.exists({ code: c.competency }),
-          }))
-        )
+        evaluation.competencies = args.competencies
+          ? await Promise.all(
+              args.competencies.map(async (c) => ({
+                ...c,
+                competency: await Competency.exists({ code: c.competency }),
+              }))
+            )
+          : undefined
         evaluation.course = assessment.course._id
         evaluation.instance = instance._id
         evaluation.requested = new Date()
