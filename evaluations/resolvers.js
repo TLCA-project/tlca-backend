@@ -977,12 +977,14 @@ const resolvers = {
         // Create the evaluation Mongoose object.
         const evaluation = new Evaluation(args)
         evaluation.assessment = assessment._id
-        evaluation.competencies = await Promise.all(
-          args.competencies.map(async (c) => ({
-            ...c,
-            competency: await Competency.exists({ code: c.competency }),
-          }))
-        )
+        evaluation.competencies = args.competencies
+          ? await Promise.all(
+              args.competencies.map(async (c) => ({
+                ...c,
+                competency: await Competency.exists({ code: c.competency }),
+              }))
+            )
+          : undefined
         evaluation.course = assessment.course._id
         evaluation.instance = instance._id
         evaluation.requested = new Date()
