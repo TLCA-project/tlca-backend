@@ -62,6 +62,7 @@ const typeDefs = gql`
     instances: Int
     load: AssessmentLoad
     name: String!
+    nbPhases: Int
     phases: [AssessmentPhase!]
     provider: String @auth(requires: [STUDENT, TEACHER])
     providerConfig: JSONObject @auth(requires: TEACHER)
