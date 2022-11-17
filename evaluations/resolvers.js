@@ -225,12 +225,20 @@ const resolvers = {
       const { Competency, Evaluation } = models
 
       const competencies = {}
-      const pastEvaluations = await Evaluation.find({
-        _id: { $ne: evaluation._id },
-        date: { $lte: evaluation.date },
-        instance: evaluation.instance,
-      }).lean()
+      const pastEvaluations = await Evaluation.find(
+        {
+          _id: { $ne: evaluation._id },
+          date: { $lte: evaluation.date },
+          instance: evaluation.instance,
+        },
+        'competencies'
+      ).lean()
+
       for (const evaluation of pastEvaluations) {
+        if (!evaluation.competencies) {
+          continue
+        }
+
         for (const competency of evaluation.competencies) {
           const id = competency.competency.toString()
           if (!competencies[id]) {
@@ -542,26 +550,25 @@ const resolvers = {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
-      // Retrieve the existing instances for the same assessment.
-      const instancesNb = await AssessmentInstance.countDocuments({
-        assessment: assessment._id,
-        user: learner._id,
-      })
-      if (assessment.instances && assessment.instances === instancesNb) {
-        throw new UserInputError('INSTANCE_CREATE')
+      // Retrieve the number of existing instances for the same assessment.
+      if (!args.instance) {
+        const instancesNb = await AssessmentInstance.countDocuments({
+          assessment: assessment._id,
+          user: learner._id,
+        })
+        if (assessment.instances && assessment.instances === instancesNb) {
+          throw new UserInputError('INSTANCE_CREATE')
+        }
       }
 
       // Retrieve the assessment instance for which to create an evaluation
       // or create a new one.
       const instance = args.instance
-        ? await AssessmentInstance.findOne(
-            {
-              _id: args.instance,
-              assessment: assessment._id,
-              user: learner._id,
-            },
-            'assessment'
-          ).lean()
+        ? await AssessmentInstance.exists({
+            _id: args.instance,
+            assessment: assessment._id,
+            user: learner._id,
+          })
         : new AssessmentInstance({
             assessment: assessment._id,
             user: learner._id,
@@ -572,7 +579,9 @@ const resolvers = {
 
       // Save the evaluation into the database.
       try {
-        await instance.save()
+        if (!args.instance) {
+          await instance.save()
+        }
 
         // Create the evaluation Mongoose object.
         const evaluation = new Evaluation(args)
@@ -592,6 +601,7 @@ const resolvers = {
 
         return await evaluation.save()
       } catch (err) {
+        console.log(err)
         const formErrors = {}
 
         switch (err.name) {
