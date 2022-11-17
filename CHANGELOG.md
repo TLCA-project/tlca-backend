@@ -1,3 +1,10 @@
+## 1.1.18 (2022-11-17)
+
+### Bug Fixes
+
+- **evaluations:** fixed issue in the 'pastCompetencies' resolver
+- **evaluations:** fixed issue when creating an evaluation (not the first one) for a single instance incremental assessment
+
 ## 1.1.17 (2022-11-15)
 
 ### Improvements
