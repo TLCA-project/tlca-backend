@@ -88,7 +88,7 @@ const resolvers = {
               return learningOutcomes
             },
             Array.from(
-              { length: competency.competency.learningOutcomes?.length },
+              { length: competency.competency.learningOutcomes.length },
               () => 0
             )
           )
@@ -101,7 +101,8 @@ const resolvers = {
             (acc, lo) => acc + (lo.takes ?? 1),
             0
           )
-          competency.innerProgress = (5 * sumAcquired) / totalToAcquire
+          competency.innerProgress =
+            (5 * Math.min(sumAcquired, totalToAcquire)) / totalToAcquire
           competency.progress = Math.trunc(20 * competency.innerProgress)
         }
       })
