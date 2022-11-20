@@ -126,6 +126,12 @@ const resolvers = {
         competencies,
       }
     },
+    // Retrieve the user associated to this registration.
+    async user(registration, _args, { models }, _info) {
+      const { User } = models
+
+      return await User.findOne({ _id: registration.user }).lean()
+    },
   },
   Query: {
     async registration(_parent, args, { models, user }, _info) {
@@ -240,7 +246,7 @@ const resolvers = {
         filter.program = program._id
       }
 
-      return await Registration.find(filter).populate('user').lean()
+      return await Registration.find(filter).lean()
     },
   },
   Mutation: {
