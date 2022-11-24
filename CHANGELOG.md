@@ -1,3 +1,17 @@
+## 1.1.19 (2022-11-24)
+
+### Features
+
+- **evaluations:** added a 'phase' field for evaluations
+
+### Improvements
+
+- **registrations:** added a specific resolver to retrieve the user associated to the registration
+
+### Bug Fixes
+
+- **registrations:** fixed issue with the computation of students' progress
+
 ## 1.1.18 (2022-11-17)
 
 ### Bug Fixes
