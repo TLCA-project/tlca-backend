@@ -88,7 +88,7 @@ const resolvers = {
               return learningOutcomes
             },
             Array.from(
-              { length: competency.competency.learningOutcomes?.length },
+              { length: competency.competency.learningOutcomes.length },
               () => 0
             )
           )
@@ -101,7 +101,8 @@ const resolvers = {
             (acc, lo) => acc + (lo.takes ?? 1),
             0
           )
-          competency.innerProgress = (5 * sumAcquired) / totalToAcquire
+          competency.innerProgress =
+            (5 * Math.min(sumAcquired, totalToAcquire)) / totalToAcquire
           competency.progress = Math.trunc(20 * competency.innerProgress)
         }
       })
@@ -124,6 +125,12 @@ const resolvers = {
         ),
         competencies,
       }
+    },
+    // Retrieve the user associated to this registration.
+    async user(registration, _args, { models }, _info) {
+      const { User } = models
+
+      return await User.findOne({ _id: registration.user }).lean()
     },
   },
   Query: {
@@ -239,7 +246,7 @@ const resolvers = {
         filter.program = program._id
       }
 
-      return await Registration.find(filter).populate('user').lean()
+      return await Registration.find(filter).lean()
     },
   },
   Mutation: {
