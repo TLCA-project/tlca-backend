@@ -82,6 +82,10 @@ const EvaluationSchema = new Schema({
   ongoing: {
     type: Boolean,
   },
+  phase: {
+    type: Number,
+    min: 0,
+  },
   published: {
     type: Date,
   },

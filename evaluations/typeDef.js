@@ -39,6 +39,7 @@ const typeDefs = gql`
     learner: User!
     note: String @auth(requires: TEACHER)
     pastCompetencies: [EvaluationCompetency!]
+    phase: Int
     published: DateTime
     rejected: DateTime @auth(requires: TEACHER)
     rejectionReason: String
@@ -82,6 +83,7 @@ const typeDefs = gql`
       evalDate: DateTime
       instance: ID
       learner: ID!
+      phase: Int
       note: String
     ): Evaluation @auth(requires: TEACHER)
     deleteEvaluation(id: ID!): Boolean @auth(requires: TEACHER)
