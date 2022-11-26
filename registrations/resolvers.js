@@ -93,16 +93,16 @@ const resolvers = {
             )
           )
 
-          const sumAcquired = competency.learningOutcomes.reduce(
-            (acc, n) => acc + n,
+          const sumAcquired = competency.competency.learningOutcomes.reduce(
+            (acc, lo, i) =>
+              acc + Math.min(competency.learningOutcomes[i], lo.takes ?? 1),
             0
           )
           const totalToAcquire = competency.competency.learningOutcomes.reduce(
             (acc, lo) => acc + (lo.takes ?? 1),
             0
           )
-          competency.innerProgress =
-            (5 * Math.min(sumAcquired, totalToAcquire)) / totalToAcquire
+          competency.innerProgress = (5 * sumAcquired) / totalToAcquire
           competency.progress = Math.trunc(20 * competency.innerProgress)
         }
       })

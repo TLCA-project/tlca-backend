@@ -1,3 +1,9 @@
+## 1.1.20 (2022-11-26)
+
+### Bug Fixes
+
+- **registrations:** fixed issue with the computation of students' progress when there are competencies using learning outcomes
+
 ## 1.1.19 (2022-11-24)
 
 ### Features
