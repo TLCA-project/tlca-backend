@@ -838,19 +838,21 @@ const resolvers = {
           selected: false,
         }
       })
-      evaluations.forEach((e) => {
-        e.competencies.forEach((c) => {
-          const competency = competencies[c.competency.toString()]
+      evaluations
+        .filter((e) => !!e.competencies)
+        .forEach((e) => {
+          e.competencies.forEach((c) => {
+            const competency = competencies[c.competency.toString()]
 
-          competency.selected ||= c.selected
+            competency.selected ||= c.selected
 
-          if (c.learningOutcomes?.length) {
-            for (let i = 0; i < c.learningOutcomes.length; i++) {
-              competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
+            if (c.learningOutcomes?.length) {
+              for (let i = 0; i < c.learningOutcomes.length; i++) {
+                competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
+              }
             }
-          }
+          })
         })
-      })
 
       // Check the constraints related to the acquired competencies
       // and create the progress history.
