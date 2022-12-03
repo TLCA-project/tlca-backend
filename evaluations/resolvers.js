@@ -666,14 +666,16 @@ const resolvers = {
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
         { _id: args.id },
-        'instance requested published user'
+        'accepted instance rejected requested published user'
       ).lean()
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
       if (
-        !evaluation ||
         evaluation.user.toString() !== user.id ||
         status(evaluation) !== 'requested'
       ) {
-        throw new UserInputError('EVALUATION_NOT_FOUND')
+        throw new UserInputError('EVALUATION_REQUEST_DELETE')
       }
 
       // Retrieve the total number of evaluations
