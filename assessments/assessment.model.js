@@ -194,7 +194,7 @@ AssessmentSchema.pre('validate', function (next) {
         phase.competencies.some(
           (c) =>
             codes.size ===
-            codes.add((c.competency._id || c.competency).toString()).size
+            codes.add((c.competency._id ?? c.competency).toString()).size
         )
       ) {
         const prefix = this.phased ? `phases-${i}-` : ''
