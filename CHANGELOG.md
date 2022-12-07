@@ -1,3 +1,18 @@
+## 1.1.21 (2022-12-07)
+
+### Features
+
+- **evaluations:** publish evaluation for phased assessments
+
+### Improvements
+
+- **assessments:** refactored assessment creation and edit resolvers
+
+### Bug Fixes
+
+- **evaluations:** fixed a bug when deleting an evaluation request
+- **evaluations:** fixed a bug when publishing an evaluation for an incremental assessment
+
 ## 1.1.20 (2022-11-26)
 
 ### Bug Fixes
