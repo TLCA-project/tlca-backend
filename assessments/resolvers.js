@@ -42,6 +42,58 @@ function clean(args) {
   }
 }
 
+async function resolveCompetencies(assessment, args, models) {
+  const { Competency } = models
+
+  const resolver = async (c) => ({
+    ...c,
+    competency: (await Competency.exists({ code: c.competency }))?._id,
+  })
+
+  if (!args.phased) {
+    assessment.competencies = await Promise.all(args.competencies.map(resolver))
+    assessment.phases = undefined
+  } else {
+    assessment.phases = await Promise.all(
+      args.phases.map(async (p) => ({
+        ...p,
+        competencies: await Promise.all(p.competencies.map(resolver)),
+      }))
+    )
+    assessment.competencies = undefined
+  }
+}
+
+// Validate competencies.
+function validateCompetencies(args, competencies) {
+  const courseCompetencies = {}
+  competencies.forEach((c) => (courseCompetencies[c.competency.code] = c))
+
+  const phases = !args.phased ? [args] : args.phases
+  for (const phase of phases) {
+    if (
+      phase.competencies.some((c) => {
+        const competency = courseCompetencies[c.competency]
+        if (!competency) {
+          return true
+        }
+
+        // Check that either stars or learning outcomes are defined
+        // and clean the competency to only have one field defined.
+        if (!competency.useLearningOutcomes) {
+          c.learningOutcomes = undefined
+          return !c.stars
+        } else {
+          c.stars = undefined
+          return !c.learningOutcomes?.length
+        }
+      })
+    ) {
+      throw new UserInputError('INVALID_COMPETENCIES')
+    }
+  }
+}
+
 const resolvers = {
   AssessmentCategory: {
     CASESTUDY: 'casestudy',
@@ -85,7 +137,11 @@ const resolvers = {
     },
     // Retrieve whether this assessment is incremental.
     isIncremental(assessment, _args, _context, _info) {
-      return !!assessment.incremental
+      return assessment.incremental
+    },
+    // Retrieve whether this assessment is phased.
+    isPhased(assessment, _args, _context, _info) {
+      return assessment.phased
     },
     // Retrieve the number of phases for this assessment, if any.
     nbPhases(assessment, _args, _context, _info) {
@@ -408,7 +464,7 @@ const resolvers = {
   Mutation: {
     // Create a new assessment from the specified parameters.
     async createAssessment(_parent, args, { models, user }, _info) {
-      const { Assessment, Competency, Course, Event } = models
+      const { Assessment, Course, Event } = models
 
       // Either competencies or phases must be defined.
       if (!args.phased && !args.competencies) {
@@ -422,11 +478,14 @@ const resolvers = {
       clean(args)
 
       // Retrieve the course for which to create an assessment.
-      const course = await Course.findOne({ code: args.course })
+      const course = await Course.findOne(
+        { code: args.course },
+        'competencies coordinator'
+      )
         .lean()
         .populate({
           path: 'competencies.competency',
-          select: 'code',
+          select: 'code useLearningOutcomes',
           model: 'Competency',
         })
       if (!course || !isCoordinator(course, user)) {
@@ -448,43 +507,12 @@ const resolvers = {
         })
       }
 
-      // Check that the constraints are satisfied.
-      const courseCompetencies = course.competencies.map(
-        (c) => c.competency.code
-      )
-
-      const phases = !args.phased ? [args] : args.phases
-      for (const phase of phases) {
-        if (
-          phase.competencies.some(
-            (c) => !courseCompetencies.includes(c.competency)
-          )
-        ) {
-          throw new UserInputError('INVALID_COMPETENCIES')
-        }
-      }
+      // Check that the competencies-related constraints are satisfied.
+      validateCompetencies(args, course.competencies)
 
       // Create the assessment Mongoose object.
       const assessment = new Assessment(args)
-      const resolveCompetencies = async (c) => ({
-        ...c,
-        competency: (await Competency.exists({ code: c.competency }))?._id,
-      })
-      if (!args.phased) {
-        assessment.competencies = await Promise.all(
-          args.competencies.map(resolveCompetencies)
-        )
-      } else {
-        assessment.phases = await Promise.all(
-          args.phases.map(async (p) => ({
-            ...p,
-            competencies: await Promise.all(
-              p.competencies.map(resolveCompetencies)
-            ),
-          }))
-        )
-      }
-
+      await resolveCompetencies(assessment, args, models)
       assessment.course = course._id
       assessment.hidden = true
       assessment.user = user.id
@@ -675,7 +703,7 @@ const resolvers = {
     },
     // Edit an existing assessment from the specified parameters.
     async editAssessment(_parent, args, { models, user }, _info) {
-      const { Assessment, Competency } = models
+      const { Assessment } = models
 
       // Retrieve the assessment to edit.
       const assessment = await Assessment.findOne({ _id: args.id }).populate({
@@ -706,22 +734,15 @@ const resolvers = {
         })
       }
 
-      // Check that the constraints are satisfied.
-      // TODO: only check if it has been changed
+      // Check that the competencies-related constraints are satisfied.
       const courseCompetencies = await Assessment.populate(assessment, [
         {
           path: 'course.competencies.competency',
-          select: 'code',
+          select: 'code useLearningOutcomes',
           model: 'Competency',
         },
-      ]).then((a) => a.course.competencies.map((c) => c.competency.code))
-      if (
-        args.competencies.some(
-          (c) => !courseCompetencies.includes(c.competency)
-        )
-      ) {
-        throw new UserInputError('INVALID_COMPETENCIES')
-      }
+      ]).then((a) => a.course.competencies)
+      validateCompetencies(args, courseCompetencies)
 
       // Edit the assessment mongoose object.
       for (const field of [
@@ -736,17 +757,14 @@ const resolvers = {
         'load',
         'name',
         'oralDefense',
+        'phased',
+        'phases',
         'start',
         'takes',
       ]) {
         assessment[field] = args[field]
       }
-      assessment.competencies = await Promise.all(
-        args.competencies.map(async (c) => ({
-          ...c,
-          competency: (await Competency.exists({ code: c.competency }))?._id,
-        }))
-      )
+      await resolveCompetencies(assessment, args, models)
 
       // Save the assessment into the database.
       try {

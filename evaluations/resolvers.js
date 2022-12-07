@@ -85,7 +85,8 @@ async function saveProgressHistory(evaluation, assessment, models) {
       evaluation: evaluation._id,
       user: evaluation.user,
     })
-    const c = assessment.competencies.find(
+    const phases = assessment.phases ?? [assessment]
+    const c = phases[evaluation.phase ?? 0].competencies.find(
       (c) =>
         (c.competency._id ?? c.competency).toString() === competency.toString()
     )
@@ -665,14 +666,16 @@ const resolvers = {
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
         { _id: args.id },
-        'instance requested published user'
+        'accepted instance rejected requested published user'
       ).lean()
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
       if (
-        !evaluation ||
         evaluation.user.toString() !== user.id ||
         status(evaluation) !== 'requested'
       ) {
-        throw new UserInputError('EVALUATION_NOT_FOUND')
+        throw new UserInputError('EVALUATION_REQUEST_DELETE')
       }
 
       // Retrieve the total number of evaluations
@@ -815,7 +818,7 @@ const resolvers = {
       // Check the constraints related to the assessment.
       const assessment = await Evaluation.populate(evaluation, {
         path: 'assessment',
-        selected: 'competencies incremental takes',
+        selected: 'competencies incremental phases takes',
         model: 'Assessment',
       }).then((e) => e.assessment)
 
@@ -830,7 +833,8 @@ const resolvers = {
 
       // Build the history of validated competencies and learning outcomes.
       const competencies = {}
-      assessment.competencies.forEach((c) => {
+      const phases = assessment.phases ?? [assessment]
+      phases[evaluation.phase ?? 0].competencies.forEach((c) => {
         competencies[c.competency.toString()] = {
           acquiredLearningOutcomes: c.learningOutcomes?.map((_) => false),
           stars: c.stars,
@@ -838,19 +842,21 @@ const resolvers = {
           selected: false,
         }
       })
-      evaluations.forEach((e) => {
-        e.competencies.forEach((c) => {
-          const competency = competencies[c.competency.toString()]
+      evaluations
+        .filter((e) => !!e.competencies)
+        .forEach((e) => {
+          e.competencies.forEach((c) => {
+            const competency = competencies[c.competency.toString()]
 
-          competency.selected ||= c.selected
+            competency.selected ||= c.selected
 
-          if (c.learningOutcomes?.length) {
-            for (let i = 0; i < c.learningOutcomes.length; i++) {
-              competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
+            if (c.learningOutcomes?.length) {
+              for (let i = 0; i < c.learningOutcomes.length; i++) {
+                competency.acquiredLearningOutcomes[i] ||= c.learningOutcomes[i]
+              }
             }
-          }
+          })
         })
-      })
 
       // Check the constraints related to the acquired competencies
       // and create the progress history.
