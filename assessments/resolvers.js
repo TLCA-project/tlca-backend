@@ -166,7 +166,7 @@ const resolvers = {
       }).lean()
     },
     isOptional(assessmentCompetency, _args, _context, _info) {
-      return assessmentCompetency.optional
+      return !!assessmentCompetency.optional
     },
   },
   AssessmentInstance: {
