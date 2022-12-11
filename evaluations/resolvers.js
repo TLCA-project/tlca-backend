@@ -602,7 +602,6 @@ const resolvers = {
 
         return await evaluation.save()
       } catch (err) {
-        console.log(err)
         const formErrors = {}
 
         switch (err.name) {
@@ -946,7 +945,7 @@ const resolvers = {
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id evaluationRequest course end start'
+        '_id competencies evaluationRequest course end start'
       ).lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
@@ -954,7 +953,40 @@ const resolvers = {
 
       const now = DateTime.now()
       if (!assessment.evaluationRequest || !canTake(assessment, now)) {
-        throw new UserInputError('CANNOT_REQUEST_EVALUATION')
+        throw new UserInputError('EVALUATION_REQUEST')
+      }
+
+      // Resolve all the competencies
+      if (args.competencies) {
+        args.competencies = await Promise.all(
+          args.competencies.map(async (c) => ({
+            ...c,
+            competency: await Competency.exists({ code: c.competency }),
+          }))
+        )
+
+        if (args.competencies.some((c) => !c.competency)) {
+          throw new UserInputError('COMPETENCY_NOT_FOUND')
+        }
+      }
+
+      // Check that all the checklists' items are checked
+      // for mandatory competencies.
+      const checklists = assessment.competencies
+        .filter((c) => !c.optional && c.checklist?.public?.length)
+        .map(({ competency }) =>
+          args.competencies
+            ?.find(
+              (c) =>
+                (c.competency._id || c.competency).toString() ===
+                competency.toString()
+            )
+            ?.checklist?.public.every((i) => i)
+        )
+      if (checklists.some((checked) => !checked)) {
+        throw new UserInputError(
+          'MISSING_CHECKED_MANDATORY_COMPETENCIES_CHECKLISTS_ITEMS'
+        )
       }
 
       // Only possible if the connected user is registered
@@ -968,40 +1000,32 @@ const resolvers = {
         throw new AuthenticationError('NOT_AUTHORISED')
       }
 
-      // Retrieve the assessment instance for which to create an evaluation
+      // Retrieve the assessment instance for which to request an evaluation
       // or create a new one.
-      let instance = null
-      if (args.instance) {
-        instance = await AssessmentInstance.findOne(
-          { _id: args.instance, assessment: assessment._id, user: user.id },
-          '_id assessment'
-        )
-        if (!instance) {
-          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
-        }
-      } else {
-        instance = new AssessmentInstance({
-          assessment: assessment._id,
-          user: user.id,
-        })
+      const instance = args.instance
+        ? await AssessmentInstance.exists({
+            _id: args.instance,
+            assessment: assessment._id,
+            user: user.id,
+          })
+        : new AssessmentInstance({
+            assessment: assessment._id,
+            user: user.id,
+          })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       // Save the evaluation into the database.
       try {
-        await instance.save()
+        if (!args.instance) {
+          await instance.save()
+        }
 
         // Create the evaluation Mongoose object.
         const evaluation = new Evaluation(args)
         evaluation.assessment = assessment._id
-        evaluation.competencies = args.competencies
-          ? await Promise.all(
-              args.competencies.map(async (c) => ({
-                ...c,
-                competency: await Competency.exists({ code: c.competency }),
-              }))
-            )
-          : undefined
-        evaluation.course = assessment.course._id
+        evaluation.course = assessment.course
         evaluation.instance = instance._id
         evaluation.requested = new Date()
         evaluation.user = user.id
