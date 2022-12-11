@@ -103,6 +103,7 @@ const typeDefs = gql`
       competencies: [EvaluationCompetencyInput!]
       explanation: String
       instance: ID
+      phase: Int
     ): Evaluation @auth(requires: STUDENT)
   }
 `
