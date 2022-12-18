@@ -107,10 +107,10 @@ const resolvers = {
       )
     },
     hasTeachingGroups(course, _args, _context, _info) {
-      return course.groups?.teaching?.length
+      return !!course.groups?.teaching?.length
     },
     hasWorkingGroups(course, _args, _context, _info) {
-      return course.groups?.working?.length
+      return !!course.groups?.working?.length
     },
     // Check whether the connected user has received an invitation for this course.
     async hasReceivedInvitation(course, _args, { models, user }, _info) {
