@@ -1,3 +1,9 @@
+## 1.1.22 (2022-12-18)
+
+### Bug Fixes
+
+- **courses:** fixed issue with wrong values for boolean GraphQL fields in courses resolver
+
 ## 1.1.21 (2022-12-07)
 
 ### Features
