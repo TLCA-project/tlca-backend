@@ -33,7 +33,7 @@ const typeDefs = gql`
     evaluator: User
     explanation: String
     id: ID!
-    instance: AssessmentInstance!
+    instance: Instance!
     isPublished: Boolean!
     isRequestPending: Boolean @auth(requires: TEACHER)
     learner: User!

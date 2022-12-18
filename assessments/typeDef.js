@@ -73,7 +73,7 @@ const typeDefs = gql`
     type: AssessmentType
   }
 
-  type AssessmentInstance {
+  type Instance {
     assessment: Assessment @auth(requires: ADMIN)
     data: JSONObject @auth(requires: TEACHER)
     datetime: DateTime!
@@ -85,9 +85,6 @@ const typeDefs = gql`
 
   extend type Query {
     assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
-    assessmentInstance(id: ID!): AssessmentInstance @auth(requires: STUDENT)
-    assessmentInstances(assessment: ID, learner: ID): [AssessmentInstance!]
-      @auth(requires: [ADMIN, STUDENT, TEACHER])
     assessments(
       courseCode: ID
       limit: Int
@@ -95,6 +92,9 @@ const typeDefs = gql`
       open: Boolean
     ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
     exportAssessment(id: ID!): JSONObject @auth(requires: TEACHER)
+    instance(id: ID!): Instance @auth(requires: STUDENT)
+    instances(assessment: ID, learner: ID): [Instance!]
+      @auth(requires: [ADMIN, STUDENT, TEACHER])
   }
 
   input AssessmentChecklistInput {
@@ -143,8 +143,7 @@ const typeDefs = gql`
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
-    createAssessmentInstance(id: ID!): AssessmentInstance
-      @auth(requires: STUDENT)
+    createInstance(id: ID!): Instance @auth(requires: STUDENT)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     deleteInstance(id: ID!): Boolean @auth(requires: ADMIN)
     editAssessment(

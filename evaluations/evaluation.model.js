@@ -74,7 +74,7 @@ const EvaluationSchema = new Schema({
   },
   instance: {
     type: Schema.ObjectId,
-    ref: 'AssessmentInstance',
+    ref: 'Instance',
   },
   note: {
     type: String,

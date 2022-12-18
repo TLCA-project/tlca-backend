@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 
 const { model, Schema } = mongoose
 
-const AssessmentInstanceSchema = new Schema({
+const InstanceSchema = new Schema({
   assessment: {
     type: Schema.ObjectId,
     ref: 'Assessment',
@@ -22,4 +22,4 @@ const AssessmentInstanceSchema = new Schema({
   },
 })
 
-export default model('AssessmentInstance', AssessmentInstanceSchema)
+export default model('Instance', InstanceSchema)

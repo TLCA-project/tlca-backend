@@ -58,12 +58,12 @@ schema = authDirectiveTransformer(schema)
 
 const models = {
   Assessment: assessments.Assessment,
-  AssessmentInstance: assessments.AssessmentInstance,
   Competency: competencies.Competency,
   Course: courses.Course,
   Evaluation: evaluations.Evaluation,
   Event: events.Event,
   File: files.File,
+  Instance: assessments.Instance,
   Partner: partners.Partner,
   Program: programs.Program,
   ProgressHistory: evaluations.ProgressHistory,

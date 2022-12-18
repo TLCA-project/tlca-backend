@@ -183,7 +183,7 @@ const resolvers = {
       return !!assessmentCompetency.optional
     },
   },
-  AssessmentInstance: {
+  Instance: {
     // Retrieve the 'assessment' associated to this instance.
     async assessment(instance, _args, { models }, _info) {
       const { Assessment } = models
@@ -250,10 +250,10 @@ const resolvers = {
       return assessment
     },
     // Retrieve one given assessment instance given its 'id'.
-    async assessmentInstance(_parent, args, { models }, _info) {
-      const { AssessmentInstance } = models
+    async instance(_parent, args, { models }, _info) {
+      const { Instance } = models
 
-      const instance = await AssessmentInstance.findOne({
+      const instance = await Instance.findOne({
         _id: args.id,
       }).lean()
       if (!instance) {
@@ -264,8 +264,8 @@ const resolvers = {
     },
     // Retrieve all the assessment instances
     // that are available to the connected user.
-    async assessmentInstances(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Registration, User } = models
+    async instances(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance, Registration, User } = models
 
       // Only 'admin' can access all the assessment instances
       // without specifying an assessment.
@@ -340,7 +340,7 @@ const resolvers = {
         }
       }
 
-      return await AssessmentInstance.find(filter).lean()
+      return await Instance.find(filter).lean()
     },
     // Retrieve all the assessments
     // that are available to the connected user.
@@ -581,8 +581,8 @@ const resolvers = {
       return null
     },
     // Create an instance of an assessment (for those with an external provider).
-    async createAssessmentInstance(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Registration } = models
+    async createInstance(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance, Registration } = models
 
       // Retrieve the assessment for which to create an instance.
       const assessment = await Assessment.findOne(
@@ -611,7 +611,7 @@ const resolvers = {
       }
 
       // Check whether there is already an assessment instance.
-      const instance = await AssessmentInstance.findOne({
+      const instance = await Instance.findOne({
         assessment: assessment._id,
         user: user.id,
       })
@@ -644,7 +644,7 @@ const resolvers = {
       }
 
       // Create the assessment instance Mongoose object.
-      const newInstance = new AssessmentInstance({
+      const newInstance = new Instance({
         assessment: assessment._id,
         data,
         user: user.id,
@@ -698,16 +698,16 @@ const resolvers = {
     },
     // Delete an existing instance from the specified parameters.
     async deleteInstance(_parent, args, { models }, _info) {
-      const { AssessmentInstance } = models
+      const { Instance } = models
 
       // Retrieve the instance to delete.
-      const instance = await AssessmentInstance.findOne({ _id: args.id })
+      const instance = await Instance.findOne({ _id: args.id })
       if (!instance) {
         throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       try {
-        await AssessmentInstance.deleteOne({ _id: args.id })
+        await Instance.deleteOne({ _id: args.id })
         return true
       } catch (err) {
         Bugsnag.notify(err)
@@ -838,10 +838,10 @@ const resolvers = {
       return null
     },
     async saveAssessmentTake(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation } = models
+      const { Evaluation, Instance } = models
 
       // Retrieve the assessment instance.
-      const instance = await AssessmentInstance.findOne({ _id: args.id })
+      const instance = await Instance.findOne({ _id: args.id })
         .populate({
           path: 'assessment',
           select: 'course',

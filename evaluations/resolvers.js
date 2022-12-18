@@ -153,11 +153,11 @@ const resolvers = {
     },
     // Retrieve the data associated to this evaluation.
     async data(evaluation, _args, { models }, _info) {
-      const { Assessment, AssessmentInstance } = models
+      const { Assessment, Instance } = models
 
       if (evaluation.published) {
         // Retrieve the instance associated to this evaluation.
-        const instance = await AssessmentInstance.findOne(
+        const instance = await Instance.findOne(
           { _id: evaluation.instance },
           'data'
         ).lean()
@@ -202,8 +202,8 @@ const resolvers = {
     },
     // Retrieve the instance associated with this evaluation.
     async instance(evaluation, _args, { models }, _info) {
-      const { AssessmentInstance } = models
-      return await AssessmentInstance.findOne({
+      const { Instance } = models
+      return await Instance.findOne({
         _id: evaluation.instance,
       }).lean()
     },
@@ -479,7 +479,7 @@ const resolvers = {
       const instance = await Evaluation.populate(evaluation, {
         path: 'instance',
         select: 'data',
-        model: 'AssessmentInstance',
+        model: 'Instance',
       }).then((e) => e.instance)
       if (!instance) {
         throw new UserInputError('EVALUATION_NOT_CORRECTABLE')
@@ -530,8 +530,7 @@ const resolvers = {
     },
     // Create a new evaluation from the specified assessment and learner.
     async createEvaluation(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Competency, Evaluation, User } =
-        models
+      const { Assessment, Competency, Evaluation, Instance, User } = models
 
       // Clean up the optional args.
       clean(args)
@@ -553,7 +552,7 @@ const resolvers = {
 
       // Retrieve the number of existing instances for the same assessment.
       if (!args.instance) {
-        const instancesNb = await AssessmentInstance.countDocuments({
+        const instancesNb = await Instance.countDocuments({
           assessment: assessment._id,
           user: learner._id,
         })
@@ -565,12 +564,12 @@ const resolvers = {
       // Retrieve the assessment instance for which to create an evaluation
       // or create a new one.
       const instance = args.instance
-        ? await AssessmentInstance.exists({
+        ? await Instance.exists({
             _id: args.instance,
             assessment: assessment._id,
             user: learner._id,
           })
-        : new AssessmentInstance({
+        : new Instance({
             assessment: assessment._id,
             user: learner._id,
           })
@@ -617,7 +616,7 @@ const resolvers = {
     },
     // Delete an existing evaluation.
     async deleteEvaluation(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation, ProgressHistory } = models
+      const { Evaluation, Instance, ProgressHistory } = models
 
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
@@ -647,7 +646,7 @@ const resolvers = {
         // If there is only one evaluation for this instance,
         // must delete the instance.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
+          await Instance.deleteOne({ _id: evaluation.instance })
         }
 
         await Evaluation.deleteOne({ _id: args.id })
@@ -660,7 +659,7 @@ const resolvers = {
     },
     // Delete an existing evaluation request.
     async deleteEvaluationRequest(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation } = models
+      const { Evaluation, Instance } = models
 
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
@@ -687,7 +686,7 @@ const resolvers = {
         // If there is only one evaluation associated
         // to the instance, delete it.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
+          await Instance.deleteOne({ _id: evaluation.instance })
         }
 
         // Delete the evaluation.
@@ -931,13 +930,8 @@ const resolvers = {
     },
     // Request a new evaluation for the specified assessment.
     async requestEvaluation(_parent, args, { models, user }, _info) {
-      const {
-        Assessment,
-        AssessmentInstance,
-        Competency,
-        Evaluation,
-        Registration,
-      } = models
+      const { Assessment, Competency, Evaluation, Instance, Registration } =
+        models
 
       // Clean up the optional args.
       clean(args)
@@ -1003,12 +997,12 @@ const resolvers = {
       // Retrieve the assessment instance for which to request an evaluation
       // or create a new one.
       const instance = args.instance
-        ? await AssessmentInstance.exists({
+        ? await Instance.exists({
             _id: args.instance,
             assessment: assessment._id,
             user: user.id,
           })
-        : new AssessmentInstance({
+        : new Instance({
             assessment: assessment._id,
             user: user.id,
           })
