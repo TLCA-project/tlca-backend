@@ -123,6 +123,10 @@ const resolvers = {
     hasProvider(assessment, _args, _context, _info) {
       return !!assessment.provider
     },
+    // Retrieve whether this assessment has a schedule.
+    hasSchedule(assessment, _args, _context, _info) {
+      return !!assessment.start || !!assessment.end
+    },
     // Retrieve the 'id' of the assessment from the MongoDB '_id'.
     id(assessment, _args, _context, _info) {
       return assessment._id.toString()
