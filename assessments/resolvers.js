@@ -119,6 +119,16 @@ const resolvers = {
     hasOralDefense(assessment, _args, _context, _info) {
       return !!assessment.oralDefense
     },
+    // Retrieve whether this assessment has associated evaluations.
+    async hasEvaluations(assessment, _args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      const nbEvaluations = await Evaluation.countDocuments({
+        assessment: assessment._id,
+        user: user.id,
+      })
+      return nbEvaluations > 0
+    },
     // Retrieve whether this assessment has a provider.
     hasProvider(assessment, _args, _context, _info) {
       return !!assessment.provider

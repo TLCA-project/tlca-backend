@@ -52,6 +52,7 @@ const typeDefs = gql`
     description: String!
     end: DateTime
     evaluationRequest: Boolean @auth(requires: TEACHER)
+    hasEvaluations: Boolean
     hasOralDefense: Boolean
     hasProvider: Boolean
     hasSchedule: Boolean
