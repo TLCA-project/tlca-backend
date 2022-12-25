@@ -105,6 +105,7 @@ const typeDefs = gql`
       instance: ID
       phase: Int
     ): Evaluation @auth(requires: STUDENT)
+    unpublishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }
 `
 

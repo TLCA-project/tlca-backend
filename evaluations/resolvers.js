@@ -4,7 +4,8 @@ import { DateTime } from 'luxon'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 
 import { canRequestEvaluation } from '../lib/assessments.js'
-import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
+import { isCoordinator, isTeacher } from '../lib/courses.js'
+import { isEvaluator } from '../lib/evaluations.js'
 import {
   cleanArray,
   cleanField,
@@ -1043,6 +1044,42 @@ const resolvers = {
             )
             throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
+      }
+
+      return null
+    },
+    // Unpublish an evaluation that is published
+    // and delete the associated possible progress history.
+    async unpublishEvaluation(_parent, args, { models, user }, _info) {
+      const { Evaluation, ProgressHistory } = models
+
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Can only unpublish an evaluation that is published
+      // and only its evaluator can unpublish it.
+      if (
+        status(evaluation) !== 'published' ||
+        !isEvaluator(evaluation, user)
+      ) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Unpublish the evaluation.
+      evaluation.published = undefined
+
+      try {
+        // Delete the progress history associated to the evaluation.
+        await ProgressHistory.deleteMany({
+          evaluation: evaluation._id,
+        })
+
+        // Save the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        Bugsnag.notify(err)
       }
 
       return null
