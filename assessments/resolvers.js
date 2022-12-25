@@ -2,7 +2,7 @@ import Bugsnag from '@bugsnag/js'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 
-import { canTake } from '../lib/assessments.js'
+import { canRequestEvaluation, canTakeEvaluation } from '../lib/assessments.js'
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
 import {
@@ -111,9 +111,20 @@ const resolvers = {
   },
   Assessment: {
     // Retrieve whether learners can request an evaluation for this assessment.
-    canRequestEvaluation(assessment, _args, _context, _info) {
-      const now = DateTime.now()
-      return assessment.evaluationRequest && canTake(assessment, now)
+    async canRequestEvaluation(assessment, _args, { models }, _info) {
+      const { Assessment } = models
+
+      if (!assessment.course.schedule) {
+        assessment.course = await Assessment.populate(assessment, [
+          {
+            model: 'Course',
+            path: 'course',
+            select: 'schedule',
+          },
+        ]).then((a) => a.course)
+      }
+
+      return canRequestEvaluation(assessment, DateTime.now())
     },
     // Retrieve whether this assessment has an oral defense.
     hasOralDefense(assessment, _args, _context, _info) {
@@ -596,7 +607,7 @@ const resolvers = {
         assessment.closed ||
         assessment.hidden ||
         !assessment.provider ||
-        !canTake(assessment, DateTime.now())
+        !canTakeEvaluation(assessment, DateTime.now())
       ) {
         throw new UserInputError('ASSESSMENT_TAKE')
       }

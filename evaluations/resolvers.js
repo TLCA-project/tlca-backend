@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 
 import { AuthenticationError, UserInputError } from 'apollo-server'
 
-import { canTake } from '../lib/assessments.js'
+import { canRequestEvaluation } from '../lib/assessments.js'
 import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
 import {
   cleanArray,
@@ -933,20 +933,28 @@ const resolvers = {
       const { Assessment, Competency, Evaluation, Instance, Registration } =
         models
 
+      const requestDate = DateTime.now()
+
       // Clean up the optional args.
       clean(args)
 
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id competencies evaluationRequest course end start'
-      ).lean()
+        '_id competencies course end evaluationRequest start'
+      )
+        .populate({
+          model: 'Course',
+          path: 'course',
+          select: 'schedule',
+        })
+        .lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
-      const now = DateTime.now()
-      if (!assessment.evaluationRequest || !canTake(assessment, now)) {
+      // Check date and time constraints.
+      if (!canRequestEvaluation(assessment, requestDate)) {
         throw new UserInputError('EVALUATION_REQUEST')
       }
 
@@ -1021,7 +1029,7 @@ const resolvers = {
         evaluation.assessment = assessment._id
         evaluation.course = assessment.course
         evaluation.instance = instance._id
-        evaluation.requested = new Date()
+        evaluation.requested = requestDate.toJSDate()
         evaluation.user = user.id
 
         return await evaluation.save()
