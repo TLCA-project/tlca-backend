@@ -23,6 +23,7 @@ function clean(args) {
     'instances',
     'oralDefense',
     'phased',
+    'requireEvaluationRequestURL',
     'start',
     'takes'
   )
@@ -784,6 +785,7 @@ const resolvers = {
         'oralDefense',
         'phased',
         'phases',
+        'requireEvaluationRequestURL',
         'start',
         'takes',
       ]) {

@@ -68,6 +68,7 @@ const typeDefs = gql`
     phases: [AssessmentPhase!]
     provider: String @auth(requires: [STUDENT, TEACHER])
     providerConfig: JSONObject @auth(requires: TEACHER)
+    requireEvaluationRequestURL: Boolean
     start: DateTime
     takes: Int
     type: AssessmentType
@@ -140,6 +141,7 @@ const typeDefs = gql`
       oralDefense: Boolean
       phased: Boolean
       phases: [AssessmentPhaseInput!]
+      requireEvaluationRequestURL: Boolean
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
@@ -162,6 +164,7 @@ const typeDefs = gql`
       oralDefense: Boolean
       phased: Boolean
       phases: [AssessmentPhaseInput!]
+      requireEvaluationRequestURL: Boolean
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
