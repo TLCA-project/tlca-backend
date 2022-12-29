@@ -24,7 +24,7 @@ function clean(args) {
     'rejected',
     'requested'
   )
-  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason')
+  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason', 'url')
 
   // Clean up each competency.
   for (const competency of args.competencies) {

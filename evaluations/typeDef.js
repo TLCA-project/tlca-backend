@@ -46,6 +46,7 @@ const typeDefs = gql`
     requested: DateTime
     requestedCompetencies: [EvaluationCompetency!] @auth(requires: TEACHER)
     status: EvaluationStatus!
+    url: String
   }
 
   extend type Query {
@@ -104,6 +105,7 @@ const typeDefs = gql`
       explanation: String
       instance: ID
       phase: Int
+      url: String
     ): Evaluation @auth(requires: STUDENT)
     unpublishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }

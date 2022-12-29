@@ -102,6 +102,9 @@ const EvaluationSchema = new Schema({
     type: [CompetencySchema],
     default: undefined,
   },
+  url: {
+    type: String,
+  },
   user: {
     type: Schema.ObjectId,
     ref: 'User',
