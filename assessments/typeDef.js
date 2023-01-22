@@ -79,7 +79,9 @@ const typeDefs = gql`
     data: JSONObject @auth(requires: TEACHER)
     datetime: DateTime!
     content: JSONObject @auth(requires: [STUDENT, TEACHER])
+    finished: DateTime
     id: ID!
+    isFinished: Boolean
     learner: User @auth(requires: ADMIN)
     nbEvaluations: Int! @auth(requires: ADMIN)
   }
@@ -168,6 +170,7 @@ const typeDefs = gql`
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
+    markInstanceFinished(id: ID!): Instance! @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
     saveAssessmentTake(
       id: ID!

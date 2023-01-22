@@ -236,6 +236,10 @@ const resolvers = {
     id(instance, _args, _context, _info) {
       return instance._id.toString()
     },
+    // Retrieve whether this instance is finished.
+    isFinished(instance, _args, _context, _info) {
+      return !!instance.finished
+    },
     // Retrieve the 'learner' associated to this instance.
     async learner(instance, _args, { models }, _info) {
       const { User } = models
@@ -817,6 +821,44 @@ const resolvers = {
             )
             throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
+      }
+
+      return null
+    },
+    // Mark an instance as finished.
+    async markInstanceFinished(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance } = models
+
+      // Retrieve the instance to update.
+      const instance = await Instance.findOne({ _id: args.id }).populate({
+        model: 'Assessment',
+        path: 'assessment',
+        select: 'course',
+      })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
+      }
+
+      // Retrieve the corresponding assessment.
+      instance.course = await Assessment.populate(instance.assessment, [
+        {
+          model: 'Course',
+          path: 'course',
+          select: 'coordinator',
+        },
+      ]).then((a) => a.course)
+      if (!isCoordinator(instance.assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Mark the instance as finished.
+      instance.finished = Date.now()
+
+      try {
+        // Update the instance into the database.
+        return await instance.save()
+      } catch (err) {
+        Bugsnag.notify(err)
       }
 
       return null

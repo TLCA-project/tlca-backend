@@ -15,6 +15,9 @@ const InstanceSchema = new Schema({
   data: {
     type: Object,
   },
+  finished: {
+    type: Date,
+  },
   user: {
     type: Schema.ObjectId,
     ref: 'User',
