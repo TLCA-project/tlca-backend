@@ -52,8 +52,10 @@ const typeDefs = gql`
     description: String!
     end: DateTime
     evaluationRequest: Boolean @auth(requires: TEACHER)
+    hasEvaluations: Boolean
     hasOralDefense: Boolean
     hasProvider: Boolean
+    hasSchedule: Boolean
     id: ID!
     isClosed: Boolean @auth(requires: [STUDENT, TEACHER])
     isHidden: Boolean @auth(requires: TEACHER)
@@ -66,26 +68,26 @@ const typeDefs = gql`
     phases: [AssessmentPhase!]
     provider: String @auth(requires: [STUDENT, TEACHER])
     providerConfig: JSONObject @auth(requires: TEACHER)
+    requireEvaluationRequestURL: Boolean
     start: DateTime
     takes: Int
     type: AssessmentType
   }
 
-  type AssessmentInstance {
+  type Instance {
     assessment: Assessment @auth(requires: ADMIN)
     data: JSONObject @auth(requires: TEACHER)
     datetime: DateTime!
     content: JSONObject @auth(requires: [STUDENT, TEACHER])
+    finished: DateTime
     id: ID!
+    isFinished: Boolean
     learner: User @auth(requires: ADMIN)
     nbEvaluations: Int! @auth(requires: ADMIN)
   }
 
   extend type Query {
     assessment(id: ID!): Assessment @auth(requires: [TEACHER, STUDENT])
-    assessmentInstance(id: ID!): AssessmentInstance @auth(requires: STUDENT)
-    assessmentInstances(assessment: ID, learner: ID): [AssessmentInstance!]
-      @auth(requires: [ADMIN, STUDENT, TEACHER])
     assessments(
       courseCode: ID
       limit: Int
@@ -93,6 +95,9 @@ const typeDefs = gql`
       open: Boolean
     ): [Assessment!] @auth(requires: [ADMIN, STUDENT, TEACHER])
     exportAssessment(id: ID!): JSONObject @auth(requires: TEACHER)
+    instance(id: ID!): Instance @auth(requires: STUDENT)
+    instances(assessment: ID, learner: ID): [Instance!]
+      @auth(requires: [ADMIN, STUDENT, TEACHER])
   }
 
   input AssessmentChecklistInput {
@@ -138,11 +143,11 @@ const typeDefs = gql`
       oralDefense: Boolean
       phased: Boolean
       phases: [AssessmentPhaseInput!]
+      requireEvaluationRequestURL: Boolean
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
-    createAssessmentInstance(id: ID!): AssessmentInstance
-      @auth(requires: STUDENT)
+    createInstance(id: ID!): Instance @auth(requires: STUDENT)
     deleteAssessment(id: ID!): Boolean @auth(requires: TEACHER)
     deleteInstance(id: ID!): Boolean @auth(requires: ADMIN)
     editAssessment(
@@ -161,9 +166,11 @@ const typeDefs = gql`
       oralDefense: Boolean
       phased: Boolean
       phases: [AssessmentPhaseInput!]
+      requireEvaluationRequestURL: Boolean
       start: DateTime
       takes: Int
     ): Assessment @auth(requires: TEACHER)
+    markInstanceFinished(id: ID!): Instance! @auth(requires: TEACHER)
     openCloseAssessment(id: ID!): Assessment! @auth(requires: TEACHER)
     saveAssessmentTake(
       id: ID!

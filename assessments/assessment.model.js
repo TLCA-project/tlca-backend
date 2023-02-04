@@ -161,6 +161,9 @@ const AssessmentSchema = new Schema({
   providerConfig: {
     type: Object,
   },
+  requireEvaluationRequestURL: {
+    type: Boolean,
+  },
   start: {
     type: Date,
   },
@@ -212,6 +215,15 @@ AssessmentSchema.pre('validate', function (next) {
     if (start >= end) {
       this.invalidate('start', 'START_DATE_NOT_BEFORE_END_DATE')
     }
+  }
+
+  // If URL are required for evaluation requests,
+  // check that the assessment allows evaluation requests
+  if (this.requireEvaluationRequestURL && !this.evaluationRequest) {
+    this.invalidate(
+      'requireEvaluationRequestURL',
+      'EVALUATION_REQUEST_NOT_ALLOWED'
+    )
   }
 
   next()

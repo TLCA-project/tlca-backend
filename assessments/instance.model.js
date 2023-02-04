@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 
 const { model, Schema } = mongoose
 
-const AssessmentInstanceSchema = new Schema({
+const InstanceSchema = new Schema({
   assessment: {
     type: Schema.ObjectId,
     ref: 'Assessment',
@@ -15,6 +15,9 @@ const AssessmentInstanceSchema = new Schema({
   data: {
     type: Object,
   },
+  finished: {
+    type: Date,
+  },
   user: {
     type: Schema.ObjectId,
     ref: 'User',
@@ -22,4 +25,4 @@ const AssessmentInstanceSchema = new Schema({
   },
 })
 
-export default model('AssessmentInstance', AssessmentInstanceSchema)
+export default model('Instance', InstanceSchema)

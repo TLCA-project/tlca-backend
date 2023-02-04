@@ -3,8 +3,9 @@ import { DateTime } from 'luxon'
 
 import { AuthenticationError, UserInputError } from 'apollo-server'
 
-import { canTake } from '../lib/assessments.js'
-import { isCoordinator, isEvaluator, isTeacher } from '../lib/courses.js'
+import { canRequestEvaluation } from '../lib/assessments.js'
+import { isCoordinator, isTeacher } from '../lib/courses.js'
+import { isEvaluator } from '../lib/evaluations.js'
 import {
   cleanArray,
   cleanField,
@@ -23,7 +24,7 @@ function clean(args) {
     'rejected',
     'requested'
   )
-  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason')
+  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason', 'url')
 
   // Clean up each competency.
   for (const competency of args.competencies) {
@@ -153,11 +154,11 @@ const resolvers = {
     },
     // Retrieve the data associated to this evaluation.
     async data(evaluation, _args, { models }, _info) {
-      const { Assessment, AssessmentInstance } = models
+      const { Assessment, Instance } = models
 
       if (evaluation.published) {
         // Retrieve the instance associated to this evaluation.
-        const instance = await AssessmentInstance.findOne(
+        const instance = await Instance.findOne(
           { _id: evaluation.instance },
           'data'
         ).lean()
@@ -202,8 +203,8 @@ const resolvers = {
     },
     // Retrieve the instance associated with this evaluation.
     async instance(evaluation, _args, { models }, _info) {
-      const { AssessmentInstance } = models
-      return await AssessmentInstance.findOne({
+      const { Instance } = models
+      return await Instance.findOne({
         _id: evaluation.instance,
       }).lean()
     },
@@ -479,7 +480,7 @@ const resolvers = {
       const instance = await Evaluation.populate(evaluation, {
         path: 'instance',
         select: 'data',
-        model: 'AssessmentInstance',
+        model: 'Instance',
       }).then((e) => e.instance)
       if (!instance) {
         throw new UserInputError('EVALUATION_NOT_CORRECTABLE')
@@ -530,8 +531,7 @@ const resolvers = {
     },
     // Create a new evaluation from the specified assessment and learner.
     async createEvaluation(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Competency, Evaluation, User } =
-        models
+      const { Assessment, Competency, Evaluation, Instance, User } = models
 
       // Clean up the optional args.
       clean(args)
@@ -553,7 +553,7 @@ const resolvers = {
 
       // Retrieve the number of existing instances for the same assessment.
       if (!args.instance) {
-        const instancesNb = await AssessmentInstance.countDocuments({
+        const instancesNb = await Instance.countDocuments({
           assessment: assessment._id,
           user: learner._id,
         })
@@ -565,12 +565,12 @@ const resolvers = {
       // Retrieve the assessment instance for which to create an evaluation
       // or create a new one.
       const instance = args.instance
-        ? await AssessmentInstance.exists({
+        ? await Instance.exists({
             _id: args.instance,
             assessment: assessment._id,
             user: learner._id,
           })
-        : new AssessmentInstance({
+        : new Instance({
             assessment: assessment._id,
             user: learner._id,
           })
@@ -602,7 +602,6 @@ const resolvers = {
 
         return await evaluation.save()
       } catch (err) {
-        console.log(err)
         const formErrors = {}
 
         switch (err.name) {
@@ -618,7 +617,7 @@ const resolvers = {
     },
     // Delete an existing evaluation.
     async deleteEvaluation(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation, ProgressHistory } = models
+      const { Evaluation, Instance, ProgressHistory } = models
 
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
@@ -648,7 +647,7 @@ const resolvers = {
         // If there is only one evaluation for this instance,
         // must delete the instance.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
+          await Instance.deleteOne({ _id: evaluation.instance })
         }
 
         await Evaluation.deleteOne({ _id: args.id })
@@ -661,7 +660,7 @@ const resolvers = {
     },
     // Delete an existing evaluation request.
     async deleteEvaluationRequest(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation } = models
+      const { Evaluation, Instance } = models
 
       // Retrieve the evaluation to delete.
       const evaluation = await Evaluation.findOne(
@@ -688,7 +687,7 @@ const resolvers = {
         // If there is only one evaluation associated
         // to the instance, delete it.
         if (evaluationsNb === 1) {
-          await AssessmentInstance.deleteOne({ _id: evaluation.instance })
+          await Instance.deleteOne({ _id: evaluation.instance })
         }
 
         // Delete the evaluation.
@@ -932,13 +931,10 @@ const resolvers = {
     },
     // Request a new evaluation for the specified assessment.
     async requestEvaluation(_parent, args, { models, user }, _info) {
-      const {
-        Assessment,
-        AssessmentInstance,
-        Competency,
-        Evaluation,
-        Registration,
-      } = models
+      const { Assessment, Competency, Evaluation, Instance, Registration } =
+        models
+
+      const requestDate = DateTime.now()
 
       // Clean up the optional args.
       clean(args)
@@ -946,15 +942,54 @@ const resolvers = {
       // Retrieve the assessment for which to request an evaluation.
       const assessment = await Assessment.findOne(
         { _id: args.assessment },
-        '_id evaluationRequest course end start'
-      ).lean()
+        '_id competencies course end evaluationRequest start'
+      )
+        .populate({
+          model: 'Course',
+          path: 'course',
+          select: 'schedule',
+        })
+        .lean()
       if (!assessment) {
         throw new UserInputError('ASSESSMENT_NOT_FOUND')
       }
 
-      const now = DateTime.now()
-      if (!assessment.evaluationRequest || !canTake(assessment, now)) {
-        throw new UserInputError('CANNOT_REQUEST_EVALUATION')
+      // Check date and time constraints.
+      if (!canRequestEvaluation(assessment, requestDate)) {
+        throw new UserInputError('EVALUATION_REQUEST')
+      }
+
+      // Resolve all the competencies
+      if (args.competencies) {
+        args.competencies = await Promise.all(
+          args.competencies.map(async (c) => ({
+            ...c,
+            competency: await Competency.exists({ code: c.competency }),
+          }))
+        )
+
+        if (args.competencies.some((c) => !c.competency)) {
+          throw new UserInputError('COMPETENCY_NOT_FOUND')
+        }
+      }
+
+      // Check that all the checklists' items are checked
+      // for mandatory competencies.
+      const checklists = assessment.competencies
+        .filter((c) => !c.optional && c.checklist?.public?.length)
+        .map(({ competency }) =>
+          args.competencies
+            ?.find(
+              (c) =>
+                (c.competency._id || c.competency).toString() ===
+                competency.toString()
+            )
+            ?.checklist?.public.every((i) => i)
+        )
+      if (checklists.some((checked) => !checked)) {
+        throw new UserInputError(
+          'MISSING_CHECKED_MANDATORY_COMPETENCIES_CHECKLISTS_ITEMS'
+        )
       }
 
       // Only possible if the connected user is registered
@@ -968,42 +1003,34 @@ const resolvers = {
         throw new AuthenticationError('NOT_AUTHORISED')
       }
 
-      // Retrieve the assessment instance for which to create an evaluation
+      // Retrieve the assessment instance for which to request an evaluation
       // or create a new one.
-      let instance = null
-      if (args.instance) {
-        instance = await AssessmentInstance.findOne(
-          { _id: args.instance, assessment: assessment._id, user: user.id },
-          '_id assessment'
-        )
-        if (!instance) {
-          throw new UserInputError('ASSESSMENT_INSTANCE_NOT_FOUND')
-        }
-      } else {
-        instance = new AssessmentInstance({
-          assessment: assessment._id,
-          user: user.id,
-        })
+      const instance = args.instance
+        ? await Instance.exists({
+            _id: args.instance,
+            assessment: assessment._id,
+            user: user.id,
+          })
+        : new Instance({
+            assessment: assessment._id,
+            user: user.id,
+          })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       // Save the evaluation into the database.
       try {
-        await instance.save()
+        if (!args.instance) {
+          await instance.save()
+        }
 
         // Create the evaluation Mongoose object.
         const evaluation = new Evaluation(args)
         evaluation.assessment = assessment._id
-        evaluation.competencies = args.competencies
-          ? await Promise.all(
-              args.competencies.map(async (c) => ({
-                ...c,
-                competency: await Competency.exists({ code: c.competency }),
-              }))
-            )
-          : undefined
-        evaluation.course = assessment.course._id
+        evaluation.course = assessment.course
         evaluation.instance = instance._id
-        evaluation.requested = new Date()
+        evaluation.requested = requestDate.toJSDate()
         evaluation.user = user.id
 
         return await evaluation.save()
@@ -1017,6 +1044,42 @@ const resolvers = {
             )
             throw new UserInputError('VALIDATION_ERROR', { formErrors })
         }
+      }
+
+      return null
+    },
+    // Unpublish an evaluation that is published
+    // and delete the associated possible progress history.
+    async unpublishEvaluation(_parent, args, { models, user }, _info) {
+      const { Evaluation, ProgressHistory } = models
+
+      const evaluation = await Evaluation.findOne({ _id: args.id })
+      if (!evaluation) {
+        throw new UserInputError('EVALUATION_NOT_FOUND')
+      }
+
+      // Can only unpublish an evaluation that is published
+      // and only its evaluator can unpublish it.
+      if (
+        status(evaluation) !== 'published' ||
+        !isEvaluator(evaluation, user)
+      ) {
+        throw new UserInputError('NOT_AUTHORISED')
+      }
+
+      // Unpublish the evaluation.
+      evaluation.published = undefined
+
+      try {
+        // Delete the progress history associated to the evaluation.
+        await ProgressHistory.deleteMany({
+          evaluation: evaluation._id,
+        })
+
+        // Save the evaluation into the database.
+        return await evaluation.save()
+      } catch (err) {
+        Bugsnag.notify(err)
       }
 
       return null

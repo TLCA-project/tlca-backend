@@ -33,7 +33,7 @@ const typeDefs = gql`
     evaluator: User
     explanation: String
     id: ID!
-    instance: AssessmentInstance!
+    instance: Instance!
     isPublished: Boolean!
     isRequestPending: Boolean @auth(requires: TEACHER)
     learner: User!
@@ -46,6 +46,7 @@ const typeDefs = gql`
     requested: DateTime
     requestedCompetencies: [EvaluationCompetency!] @auth(requires: TEACHER)
     status: EvaluationStatus!
+    url: String
   }
 
   extend type Query {
@@ -103,7 +104,10 @@ const typeDefs = gql`
       competencies: [EvaluationCompetencyInput!]
       explanation: String
       instance: ID
+      phase: Int
+      url: String
     ): Evaluation @auth(requires: STUDENT)
+    unpublishEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
   }
 `
 

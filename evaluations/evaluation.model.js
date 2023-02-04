@@ -74,7 +74,7 @@ const EvaluationSchema = new Schema({
   },
   instance: {
     type: Schema.ObjectId,
-    ref: 'AssessmentInstance',
+    ref: 'Instance',
   },
   note: {
     type: String,
@@ -101,6 +101,9 @@ const EvaluationSchema = new Schema({
   requestedCompetencies: {
     type: [CompetencySchema],
     default: undefined,
+  },
+  url: {
+    type: String,
   },
   user: {
     type: Schema.ObjectId,

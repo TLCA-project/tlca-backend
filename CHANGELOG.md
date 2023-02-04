@@ -1,3 +1,23 @@
+## 1.2.0 (2023-02-04)
+
+### Features
+
+- **assessments:** added a finished field for assessment instances
+- **assessments:** configure an assessment to make URL required when requesting an evaluation
+
+- **courses:** define an end of evaluation requests date
+
+- **evaluations:** added an URL field for evaluations
+- **evaluations:** unpublish an evaluation
+
+### Improvements
+
+- **assessments:** added several fields to get additional information (existence of a schedule and existence of evaluations)
+
+### Code Refactoring
+
+- renamed the entities representing assessment instances (from assessmentInstance to just instance)
+
 ## 1.1.22 (2022-12-18)
 
 ### Bug Fixes

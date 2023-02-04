@@ -2,7 +2,7 @@ import Bugsnag from '@bugsnag/js'
 import { AuthenticationError, UserInputError } from 'apollo-server'
 import { DateTime } from 'luxon'
 
-import { canTake } from '../lib/assessments.js'
+import { canRequestEvaluation, canTakeEvaluation } from '../lib/assessments.js'
 import { isCoordinator, isTeacher } from '../lib/courses.js'
 import { hasRole } from '../lib/users.js'
 import {
@@ -23,6 +23,7 @@ function clean(args) {
     'instances',
     'oralDefense',
     'phased',
+    'requireEvaluationRequestURL',
     'start',
     'takes'
   )
@@ -111,17 +112,42 @@ const resolvers = {
   },
   Assessment: {
     // Retrieve whether learners can request an evaluation for this assessment.
-    canRequestEvaluation(assessment, _args, _context, _info) {
-      const now = DateTime.now()
-      return assessment.evaluationRequest && canTake(assessment, now)
+    async canRequestEvaluation(assessment, _args, { models }, _info) {
+      const { Assessment } = models
+
+      if (!assessment.course.schedule) {
+        assessment.course = await Assessment.populate(assessment, [
+          {
+            model: 'Course',
+            path: 'course',
+            select: 'schedule',
+          },
+        ]).then((a) => a.course)
+      }
+
+      return canRequestEvaluation(assessment, DateTime.now())
     },
     // Retrieve whether this assessment has an oral defense.
     hasOralDefense(assessment, _args, _context, _info) {
       return !!assessment.oralDefense
     },
+    // Retrieve whether this assessment has associated evaluations.
+    async hasEvaluations(assessment, _args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      const nbEvaluations = await Evaluation.countDocuments({
+        assessment: assessment._id,
+        user: user.id,
+      })
+      return nbEvaluations > 0
+    },
     // Retrieve whether this assessment has a provider.
     hasProvider(assessment, _args, _context, _info) {
       return !!assessment.provider
+    },
+    // Retrieve whether this assessment has a schedule.
+    hasSchedule(assessment, _args, _context, _info) {
+      return !!assessment.start || !!assessment.end
     },
     // Retrieve the 'id' of the assessment from the MongoDB '_id'.
     id(assessment, _args, _context, _info) {
@@ -166,10 +192,10 @@ const resolvers = {
       }).lean()
     },
     isOptional(assessmentCompetency, _args, _context, _info) {
-      return assessmentCompetency.optional
+      return !!assessmentCompetency.optional
     },
   },
-  AssessmentInstance: {
+  Instance: {
     // Retrieve the 'assessment' associated to this instance.
     async assessment(instance, _args, { models }, _info) {
       const { Assessment } = models
@@ -210,6 +236,10 @@ const resolvers = {
     id(instance, _args, _context, _info) {
       return instance._id.toString()
     },
+    // Retrieve whether this instance is finished.
+    isFinished(instance, _args, _context, _info) {
+      return !!instance.finished
+    },
     // Retrieve the 'learner' associated to this instance.
     async learner(instance, _args, { models }, _info) {
       const { User } = models
@@ -236,10 +266,10 @@ const resolvers = {
       return assessment
     },
     // Retrieve one given assessment instance given its 'id'.
-    async assessmentInstance(_parent, args, { models }, _info) {
-      const { AssessmentInstance } = models
+    async instance(_parent, args, { models }, _info) {
+      const { Instance } = models
 
-      const instance = await AssessmentInstance.findOne({
+      const instance = await Instance.findOne({
         _id: args.id,
       }).lean()
       if (!instance) {
@@ -250,8 +280,8 @@ const resolvers = {
     },
     // Retrieve all the assessment instances
     // that are available to the connected user.
-    async assessmentInstances(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Registration, User } = models
+    async instances(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance, Registration, User } = models
 
       // Only 'admin' can access all the assessment instances
       // without specifying an assessment.
@@ -326,7 +356,7 @@ const resolvers = {
         }
       }
 
-      return await AssessmentInstance.find(filter).lean()
+      return await Instance.find(filter).lean()
     },
     // Retrieve all the assessments
     // that are available to the connected user.
@@ -567,8 +597,8 @@ const resolvers = {
       return null
     },
     // Create an instance of an assessment (for those with an external provider).
-    async createAssessmentInstance(_parent, args, { models, user }, _info) {
-      const { Assessment, AssessmentInstance, Registration } = models
+    async createInstance(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance, Registration } = models
 
       // Retrieve the assessment for which to create an instance.
       const assessment = await Assessment.findOne(
@@ -582,7 +612,7 @@ const resolvers = {
         assessment.closed ||
         assessment.hidden ||
         !assessment.provider ||
-        !canTake(assessment, DateTime.now())
+        !canTakeEvaluation(assessment, DateTime.now())
       ) {
         throw new UserInputError('ASSESSMENT_TAKE')
       }
@@ -597,7 +627,7 @@ const resolvers = {
       }
 
       // Check whether there is already an assessment instance.
-      const instance = await AssessmentInstance.findOne({
+      const instance = await Instance.findOne({
         assessment: assessment._id,
         user: user.id,
       })
@@ -630,7 +660,7 @@ const resolvers = {
       }
 
       // Create the assessment instance Mongoose object.
-      const newInstance = new AssessmentInstance({
+      const newInstance = new Instance({
         assessment: assessment._id,
         data,
         user: user.id,
@@ -684,16 +714,16 @@ const resolvers = {
     },
     // Delete an existing instance from the specified parameters.
     async deleteInstance(_parent, args, { models }, _info) {
-      const { AssessmentInstance } = models
+      const { Instance } = models
 
       // Retrieve the instance to delete.
-      const instance = await AssessmentInstance.findOne({ _id: args.id })
+      const instance = await Instance.findOne({ _id: args.id })
       if (!instance) {
         throw new UserInputError('INSTANCE_NOT_FOUND')
       }
 
       try {
-        await AssessmentInstance.deleteOne({ _id: args.id })
+        await Instance.deleteOne({ _id: args.id })
         return true
       } catch (err) {
         Bugsnag.notify(err)
@@ -759,6 +789,7 @@ const resolvers = {
         'oralDefense',
         'phased',
         'phases',
+        'requireEvaluationRequestURL',
         'start',
         'takes',
       ]) {
@@ -794,6 +825,44 @@ const resolvers = {
 
       return null
     },
+    // Mark an instance as finished.
+    async markInstanceFinished(_parent, args, { models, user }, _info) {
+      const { Assessment, Instance } = models
+
+      // Retrieve the instance to update.
+      const instance = await Instance.findOne({ _id: args.id }).populate({
+        model: 'Assessment',
+        path: 'assessment',
+        select: 'course',
+      })
+      if (!instance) {
+        throw new UserInputError('INSTANCE_NOT_FOUND')
+      }
+
+      // Retrieve the corresponding assessment.
+      instance.course = await Assessment.populate(instance.assessment, [
+        {
+          model: 'Course',
+          path: 'course',
+          select: 'coordinator',
+        },
+      ]).then((a) => a.course)
+      if (!isCoordinator(instance.assessment.course, user)) {
+        throw new UserInputError('ASSESSMENT_NOT_FOUND')
+      }
+
+      // Mark the instance as finished.
+      instance.finished = Date.now()
+
+      try {
+        // Update the instance into the database.
+        return await instance.save()
+      } catch (err) {
+        Bugsnag.notify(err)
+      }
+
+      return null
+    },
     // Open or close this assessment depending on its openness.
     async openCloseAssessment(_parent, args, { models, user }, _info) {
       const { Assessment } = models
@@ -824,10 +893,10 @@ const resolvers = {
       return null
     },
     async saveAssessmentTake(_parent, args, { models, user }, _info) {
-      const { AssessmentInstance, Evaluation } = models
+      const { Evaluation, Instance } = models
 
       // Retrieve the assessment instance.
-      const instance = await AssessmentInstance.findOne({ _id: args.id })
+      const instance = await Instance.findOne({ _id: args.id })
         .populate({
           path: 'assessment',
           select: 'course',
