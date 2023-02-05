@@ -58,6 +58,7 @@ const typeDefs = gql`
     hasSchedule: Boolean
     id: ID!
     isClosed: Boolean @auth(requires: [STUDENT, TEACHER])
+    isForGroup: Boolean
     isHidden: Boolean @auth(requires: TEACHER)
     isIncremental: Boolean
     isPhased: Boolean
@@ -136,6 +137,7 @@ const typeDefs = gql`
       description: String!
       end: DateTime
       evaluationRequest: Boolean
+      group: Boolean
       incremental: Boolean
       instances: Int
       load: AssessmentLoadInput
@@ -158,6 +160,7 @@ const typeDefs = gql`
       description: String!
       end: DateTime
       evaluationRequest: Boolean
+      group: Boolean
       id: ID!
       incremental: Boolean
       instances: Int
