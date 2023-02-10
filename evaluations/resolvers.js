@@ -13,7 +13,7 @@ import {
   cleanString,
 } from '../lib/utils.js'
 
-// Clean up the optional args related to an assessment.
+// Clean up the optional args related to an evaluation.
 function clean(args) {
   cleanField(
     args,
@@ -24,41 +24,52 @@ function clean(args) {
     'rejected',
     'requested'
   )
-  cleanString(args, 'comment', 'explanation', 'note', 'rejectedReason', 'url')
+  cleanString(
+    args,
+    'acceptanceComment',
+    'comment',
+    'explanation',
+    'note',
+    'rejectedReason',
+    'url'
+  )
 
   // Clean up each competency.
-  for (const competency of args.competencies) {
-    const { checklist, learningOutcomes } = competency
+  if (args.competencies) {
+    for (const competency of args.competencies) {
+      const { checklist, learningOutcomes } = competency
 
-    if (checklist) {
-      for (const t of ['private', 'public']) {
-        if (checklist[t]?.every((i) => !i)) {
-          competency.checklist[t] = undefined
+      if (checklist) {
+        for (const t of ['private', 'public']) {
+          if (checklist[t]?.every((i) => !i)) {
+            competency.checklist[t] = undefined
+          }
+          cleanArray(checklist, t)
         }
-        cleanArray(checklist, t)
       }
-    }
-    cleanObject(competency, 'checklist')
+      cleanObject(competency, 'checklist')
 
-    if (learningOutcomes) {
-      if (learningOutcomes.every((lo) => !lo)) {
-        competency.learningOutcomes = undefined
+      if (learningOutcomes) {
+        if (learningOutcomes.every((lo) => !lo)) {
+          competency.learningOutcomes = undefined
+        }
+        cleanArray(competency, 'learningOutcomes')
       }
-      cleanArray(competency, 'learningOutcomes')
+
+      if (
+        !competency.selected &&
+        !competency.checklist &&
+        !competency.learningOutcomes
+      ) {
+        competency.delete = true
+      }
+
+      cleanField(competency, 'selected')
     }
 
-    if (
-      !competency.selected &&
-      !competency.checklist &&
-      !competency.learningOutcomes
-    ) {
-      competency.delete = true
-    }
-
-    cleanField(competency, 'selected')
+    args.competencies = args.competencies.filter((c) => !c.delete)
   }
 
-  args.competencies = args.competencies.filter((c) => !c.delete)
   cleanArray(args, 'competencies')
 }
 
@@ -396,6 +407,9 @@ const resolvers = {
     async acceptEvaluationRequest(_parent, args, { models, user }, _info) {
       const { Evaluation } = models
 
+      // Clean up the optional args.
+      cleanString(args, 'comment')
+
       // Retrieve the evaluation request to accept.
       const evaluation = await Evaluation.findOne({ _id: args.id })
       if (!evaluation || !isRequestPending(evaluation)) {
@@ -415,6 +429,7 @@ const resolvers = {
       }
 
       // Accept the evaluation request.
+      evaluation.acceptanceComment = args.comment
       evaluation.accepted = new Date()
       evaluation.evaluator = user.id
       evaluation.requestedCompetencies = evaluation.competencies

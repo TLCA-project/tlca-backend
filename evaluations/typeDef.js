@@ -22,6 +22,7 @@ const typeDefs = gql`
   }
 
   type Evaluation {
+    acceptanceComment: String
     accepted: DateTime @auth(requires: TEACHER)
     assessment: Assessment!
     comment: String
@@ -75,7 +76,8 @@ const typeDefs = gql`
   }
 
   extend type Mutation {
-    acceptEvaluationRequest(id: ID!): Evaluation @auth(requires: TEACHER)
+    acceptEvaluationRequest(comment: String, id: ID!): Evaluation
+      @auth(requires: TEACHER)
     correctEvaluation(id: ID!): Evaluation @auth(requires: TEACHER)
     createEvaluation(
       assessment: ID!
