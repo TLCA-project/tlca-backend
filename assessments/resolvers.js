@@ -19,6 +19,7 @@ function clean(args) {
     args,
     'end',
     'evaluationRequest',
+    'group',
     'incremental',
     'instances',
     'oralDefense',
@@ -40,6 +41,30 @@ function clean(args) {
       cleanArray(competency, 'learningOutcomes')
       cleanField(competency, 'maxStars', 'optional', 'stars')
     }
+  }
+}
+
+// Handle errors resulting from the creation or edit of an assessment.
+function handleError(err) {
+  const formErrors = {}
+
+  switch (err.name) {
+    case 'MongoServerError':
+      switch (err.code) {
+        case 11000:
+          throw new UserInputError('EXISTING_CODE', {
+            formErrors: {
+              code: 'The specified code already exists',
+            },
+          })
+      }
+      break
+
+    case 'ValidationError':
+      Object.keys(err.errors).forEach(
+        (e) => (formErrors[e] = err.errors[e].properties.message)
+      )
+      throw new UserInputError('VALIDATION_ERROR', { formErrors })
   }
 }
 
@@ -156,6 +181,10 @@ const resolvers = {
     // Retrieve whether this assessment is closed.
     isClosed(assessment, _args, _context, _info) {
       return !!assessment.closed
+    },
+    // Retrieve whether this assessment is for group.
+    isForGroup(assessment, _args, _context, _info) {
+      return !!assessment.group
     },
     // Retrieve whether this assessment is hidden.
     isHidden(assessment, _args, _context, _info) {
@@ -572,26 +601,7 @@ const resolvers = {
       try {
         return await assessment.save()
       } catch (err) {
-        const formErrors = {}
-
-        switch (err.name) {
-          case 'MongoServerError':
-            switch (err.code) {
-              case 11000:
-                throw new UserInputError('EXISTING_CODE', {
-                  formErrors: {
-                    code: 'The specified code already exists',
-                  },
-                })
-            }
-            break
-
-          case 'ValidationError':
-            Object.keys(err.errors).forEach(
-              (e) => (formErrors[e] = err.errors[e].properties.message)
-            )
-            throw new UserInputError('VALIDATION_ERROR', { formErrors })
-        }
+        handleError(err)
       }
 
       return null
@@ -782,6 +792,7 @@ const resolvers = {
         'description',
         'end',
         'evaluationRequest',
+        'group',
         'incremental',
         'instances',
         'load',
@@ -801,26 +812,7 @@ const resolvers = {
       try {
         return await assessment.save()
       } catch (err) {
-        const formErrors = {}
-
-        switch (err.name) {
-          case 'MongoServerError':
-            switch (err.code) {
-              case 11000:
-                throw new UserInputError('EXISTING_CODE', {
-                  formErrors: {
-                    code: 'The specified code already exists',
-                  },
-                })
-            }
-            break
-
-          case 'ValidationError':
-            Object.keys(err.errors).forEach(
-              (e) => (formErrors[e] = err.errors[e].properties.message)
-            )
-            throw new UserInputError('VALIDATION_ERROR', { formErrors })
-        }
+        handleError(err)
       }
 
       return null

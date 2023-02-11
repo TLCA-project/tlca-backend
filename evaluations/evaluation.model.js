@@ -35,6 +35,9 @@ const CompetencySchema = new Schema(
 )
 
 const EvaluationSchema = new Schema({
+  acceptanceComment: {
+    type: String,
+  },
   accepted: {
     type: Date,
   },
