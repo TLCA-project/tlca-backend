@@ -692,7 +692,7 @@ const resolvers = {
         'archived code coordinator name published schedule teachers visibility'
       ).lean()
       if (!course) {
-        throw new UserInputError('Course not found.')
+        throw new UserInputError('COURSE_NOT_FOUND')
       }
 
       // Check whether the user already exists on the platform.
@@ -703,15 +703,14 @@ const resolvers = {
 
       // Only the coordinator can send an invitation
       // for a published course with 'invite-only' or 'private' visibility
-      // and, if the user to invite exists, not to the coordinator or a teacher of the course
+      // and, if the user to invite exists, he/she cannot be the coordinator or a teacher of the course
       // and within the registration schedule, if any.
       const now = DateTime.now()
       if (
         !isCoordinator(course, user) ||
         !course.published ||
-        course.archived ||
-        (course.visibility !== 'invite-only' &&
-          course.visibility !== 'private') ||
+        !!course.archived ||
+        !['invite-only', 'private'].includes(course.visibility) ||
         isCoordinator(course, invitedUser) ||
         isTeacher(course, invitedUser) ||
         !canEnroll(course, now)

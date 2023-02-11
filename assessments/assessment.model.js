@@ -116,6 +116,9 @@ const AssessmentSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'Event',
   },
+  group: {
+    type: Boolean,
+  },
   hidden: {
     type: Boolean,
   },
