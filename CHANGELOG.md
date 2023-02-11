@@ -1,3 +1,11 @@
+## 1.2.1 (2023-02-11)
+
+### Features
+
+- **assessments:** configure an assessment to be a 'group' assessment or not (teacher)
+
+- **evaluations:** provide an optional acceptance comment when accepting an evaluation request (teacher)
+
 ## 1.2.0 (2023-02-04)
 
 ### Features

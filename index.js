@@ -11,7 +11,7 @@ dotenv.config({ path: `.env.${process.env.NODE_ENV}` })
 
 // Configure BugSnag monitoring.
 Bugsnag.start({
-  appVersion: '1.2.0',
+  appVersion: '1.2.1',
   apiKey: process.env.BUGSNAG_SERVER_API_KEY,
   enabledReleaseStages: ['production'],
   environment: process.env.NODE_ENV,
