@@ -325,8 +325,8 @@ const resolvers = {
 
       // Compute the global status.
       if (
-        status.evaluations === 'FINISHED' &&
-        status.instances === 'FINISHED'
+        assessment.closed ||
+        (status.evaluations === 'FINISHED' && status.instances === 'FINISHED')
       ) {
         status.status = 'FINISHED'
       } else if (
