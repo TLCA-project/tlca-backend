@@ -11,6 +11,12 @@ const typeDefs = gql`
     QUIZ
   }
 
+  enum AssessmentTakesStatus {
+    AVAILABLE
+    FINISHED
+    PENDING
+  }
+
   enum AssessmentType {
     INCREMENTAL
     PHASED
@@ -43,6 +49,12 @@ const typeDefs = gql`
     name: String!
   }
 
+  type TakesStatus {
+    evaluations: AssessmentTakesStatus
+    instances: AssessmentTakesStatus
+    status: AssessmentTakesStatus
+  }
+
   type Assessment {
     canRequestEvaluation: Boolean
     category: AssessmentCategory!
@@ -65,6 +77,8 @@ const typeDefs = gql`
     instances: Int
     load: AssessmentLoad
     name: String!
+    nbEvaluations: Int!
+    nbInstances: Int!
     nbPhases: Int
     phases: [AssessmentPhase!]
     provider: String @auth(requires: [STUDENT, TEACHER])
@@ -72,6 +86,7 @@ const typeDefs = gql`
     requireEvaluationRequestURL: Boolean
     start: DateTime
     takes: Int
+    takesStatus: TakesStatus @auth(requires: [STUDENT, TEACHER])
     type: AssessmentType
   }
 
