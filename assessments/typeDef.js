@@ -86,7 +86,7 @@ const typeDefs = gql`
     requireEvaluationRequestURL: Boolean
     start: DateTime
     takes: Int
-    takesStatus: TakesStatus @auth(requires: [STUDENT, TEACHER])
+    takesStatus(learner: ID): TakesStatus @auth(requires: [STUDENT, TEACHER])
     type: AssessmentType
   }
 

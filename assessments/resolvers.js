@@ -232,17 +232,53 @@ const resolvers = {
       return assessment.phases?.length
     },
     // Retrieve the status of the instances and evaluations.
-    async takesStatus(assessment, _args, { models, user }, _info) {
-      const { Evaluation, Instance } = models
+    async takesStatus(assessment, args, { models, user }, _info) {
+      const { Assessment, Evaluation, Instance, Registration, User } = models
 
+      const filter = { assessment: assessment._id }
       const status = {
         evaluations: 'PENDING',
         instances: 'AVAILABLE',
         status: 'AVAILABLE',
       }
 
-      // Basically, can only retrieve own instances
-      const filter = { assessment: assessment._id, user: user.id }
+      // Check whether the user is registered to the course.
+      const isRegistered = await Registration.exists({
+        course: assessment.course,
+        user: user.id,
+      })
+      if (hasRole(user, 'student') && isRegistered) {
+        filter.user = user.id
+      }
+
+      // Check whether the user is the coordinator or a teacher of the course.
+      else {
+        const course = await Assessment.populate(assessment, [
+          {
+            path: 'course',
+            select: '_id coordinator teachers',
+            model: 'Course',
+          },
+        ]).then((a) => a.course)
+
+        if (
+          hasRole(user, 'teacher') &&
+          (isCoordinator(course, user) || isTeacher(course, user)) &&
+          args.learner
+        ) {
+          const learner = await User.exists({ username: args.learner })
+          if (!learner) {
+            throw new UserInputError('USER_NOT_FOUND')
+          }
+
+          filter.user = learner._id
+        }
+      }
+
+      // Check whether a user has been found.
+      if (!filter.user) {
+        throw new AuthenticationError('NOT_AUTHORISED')
+      }
 
       // Retrieve all the instances and the associated evaluations.
       const instances = await Promise.all(
