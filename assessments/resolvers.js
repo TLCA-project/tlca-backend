@@ -198,9 +198,181 @@ const resolvers = {
     isPhased(assessment, _args, _context, _info) {
       return assessment.phased
     },
+    // Retrieve the number of
+    // either all the evaluations associated to this assessment
+    // or only those associated to the connected student or a given learner.
+    async nbEvaluations(assessment, _args, { models, user }, _info) {
+      const { Evaluation } = models
+
+      // Basically, can only retrieve own evaluations
+      // that are published
+      const filter = { user: user.id, published: { $exists: true } }
+
+      return await Evaluation.countDocuments({
+        assessment: assessment._id,
+        ...filter,
+      })
+    },
+    // Retrieve the number of
+    // either all the instances associated to this assessment
+    // or only those associated to the connected student or a given learner.
+    async nbInstances(assessment, _args, { models, user }, _info) {
+      const { Instance } = models
+
+      // Basically, can only retrieve own instances
+      const filter = { user: user.id }
+
+      return await Instance.countDocuments({
+        assessment: assessment._id,
+        ...filter,
+      })
+    },
     // Retrieve the number of phases for this assessment, if any.
     nbPhases(assessment, _args, _context, _info) {
       return assessment.phases?.length
+    },
+    // Retrieve the status of the instances and evaluations.
+    async takesStatus(assessment, args, { models, user }, _info) {
+      const { Assessment, Evaluation, Instance, Registration, User } = models
+
+      const filter = { assessment: assessment._id }
+      const status = {
+        evaluations: 'PENDING',
+        instances: 'AVAILABLE',
+        status: 'AVAILABLE',
+      }
+
+      // Check whether the user is registered to the course.
+      const isRegistered = await Registration.exists({
+        course: assessment.course,
+        user: user.id,
+      })
+      if (hasRole(user, 'student') && isRegistered) {
+        filter.user = user.id
+      }
+
+      // Check whether the user is the coordinator or a teacher of the course.
+      else {
+        const course = await Assessment.populate(assessment, [
+          {
+            path: 'course',
+            select: '_id coordinator teachers',
+            model: 'Course',
+          },
+        ]).then((a) => a.course)
+
+        if (
+          hasRole(user, 'teacher') &&
+          (isCoordinator(course, user) || isTeacher(course, user)) &&
+          args.learner
+        ) {
+          const learner = await User.exists({ username: args.learner })
+          if (!learner) {
+            throw new UserInputError('USER_NOT_FOUND')
+          }
+
+          filter.user = learner._id
+        }
+      }
+
+      // Check whether a user has been found.
+      if (!filter.user) {
+        throw new AuthenticationError('NOT_AUTHORISED')
+      }
+
+      // Retrieve all the instances and the associated evaluations.
+      const instances = await Promise.all(
+        (
+          await Instance.find(filter).lean()
+        ).map(async (i) => ({
+          ...i,
+          evaluations: await Evaluation.find({ instance: i._id }).lean(),
+        }))
+      )
+
+      // If there are no instances yet, the status is all AVAILABLE.
+      if (!instances.length) {
+        return {
+          ...status,
+          evaluations: 'AVAILABLE',
+        }
+      }
+
+      // Check whether there are any pending evaluations for each instance.
+      instances.forEach((i) => {
+        i.pending = i.evaluations.some((e) => !e.published)
+      })
+
+      // Check whether there are any pending instances.
+      if (instances.length === assessment.instances) {
+        status.instances = instances.some(
+          (i) => i.evaluations.length === 1 && i.pending
+        )
+          ? 'PENDING'
+          : 'FINISHED'
+      }
+
+      // Check if it possible for the user to make progress in evaluations.
+      if (!instances.every((i) => i.pending)) {
+        // Single-take assessment
+        if (!assessment.incremental) {
+          instances.forEach((i) => {
+            i.canMakeProgress = !i.evaluations || !i.evaluations.length
+          })
+        }
+        // Incremental assessment
+        else {
+          instances.forEach((i) => {
+            if (!i.evaluations || !i.evaluations.length) {
+              i.canMakeProgress = true
+              return
+            }
+
+            const competencies = new Set()
+            i.evaluations.forEach((e) => {
+              if (e.competencies) {
+                e.competencies.forEach((c) => {
+                  if (c.selected) {
+                    competencies.add(c.competency.toString())
+                  }
+                })
+              }
+            })
+
+            const acquiredCompetencies = Array.from(competencies).length
+            const target = assessment.competencies.map((c) =>
+              c.competency.toString()
+            ).length
+
+            // Check that all the competencies of the assessment have been acquired
+            // and that the number of evaluations is below the evaluations limit, if any
+            i.canMakeProgress =
+              acquiredCompetencies < target &&
+              (!assessment.takes || i.evaluations.length < assessment.takes)
+          })
+        }
+
+        if (instances.some((i) => i.canMakeProgress && !i.pending)) {
+          status.evaluations = 'AVAILABLE'
+        } else if (instances.every((i) => !i.canMakeProgress && !i.pending)) {
+          status.evaluations = 'FINISHED'
+        }
+      }
+
+      // Compute the global status.
+      if (
+        assessment.closed ||
+        (status.evaluations === 'FINISHED' && status.instances === 'FINISHED')
+      ) {
+        status.status = 'FINISHED'
+      } else if (
+        status.evaluations === 'PENDING' &&
+        ['FINISHED', 'PENDING'].includes(status.instances)
+      ) {
+        status.status = 'PENDING'
+      }
+
+      return status
     },
     // Retrieve the type of this assessment.
     type(assessment, _args, _content, _info) {
@@ -294,6 +466,58 @@ const resolvers = {
 
       return assessment
     },
+    // Retrieve all the assessments
+    // that are available to the connected user.
+    async assessments(_parent, args, { models, user }, _info) {
+      const { Assessment, Course, Registration } = models
+
+      // Only 'admin' can access all the assessments
+      // without specifying a course code.
+      if (!args.courseCode && !hasRole(user, 'admin')) {
+        throw new UserInputError('COURSE_CODE_REQUIRED')
+      }
+
+      const filter = {}
+
+      // Filter the assessments to only keep those associated to the specified course.
+      if (args.courseCode) {
+        const course = await Course.findOne(
+          { code: args.courseCode },
+          '_id coordinator teachers'
+        ).lean()
+        if (!course) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        filter.course = course._id
+
+        const isRegistered = await Registration.exists({
+          course: course._id,
+          invitation: { $exists: false },
+          user: user.id,
+        })
+        if (
+          !(
+            (hasRole(user, 'teacher') &&
+              (isCoordinator(course, user) || isTeacher(course, user))) ||
+            (hasRole(user, 'student') && isRegistered)
+          )
+        ) {
+          throw new UserInputError('COURSE_NOT_FOUND')
+        }
+
+        if (isRegistered) {
+          filter.hidden = { $ne: true }
+        }
+      }
+
+      // Filter the assessements to only keep the open ones.
+      if (args.open) {
+        filter.closed = { $ne: true }
+      }
+
+      return await Assessment.find(filter).lean()
+    },
     // Retrieve one given assessment instance given its 'id'.
     async instance(_parent, args, { models }, _info) {
       const { Instance } = models
@@ -386,58 +610,6 @@ const resolvers = {
       }
 
       return await Instance.find(filter).lean()
-    },
-    // Retrieve all the assessments
-    // that are available to the connected user.
-    async assessments(_parent, args, { models, user }, _info) {
-      const { Assessment, Course, Registration } = models
-
-      // Only 'admin' can access all the assessments
-      // without specifying a course code.
-      if (!args.courseCode && !hasRole(user, 'admin')) {
-        throw new UserInputError('COURSE_CODE_REQUIRED')
-      }
-
-      const filter = {}
-
-      // Filter the assessments to only keep those associated to the specified course.
-      if (args.courseCode) {
-        const course = await Course.findOne(
-          { code: args.courseCode },
-          '_id coordinator teachers'
-        ).lean()
-        if (!course) {
-          throw new UserInputError('COURSE_NOT_FOUND')
-        }
-
-        filter.course = course._id
-
-        const isRegistered = await Registration.exists({
-          course: course._id,
-          invitation: { $exists: false },
-          user: user.id,
-        })
-        if (
-          !(
-            (hasRole(user, 'teacher') &&
-              (isCoordinator(course, user) || isTeacher(course, user))) ||
-            (hasRole(user, 'student') && isRegistered)
-          )
-        ) {
-          throw new UserInputError('COURSE_NOT_FOUND')
-        }
-
-        if (isRegistered) {
-          filter.hidden = { $ne: true }
-        }
-      }
-
-      // Filter the assessements to only keep the open ones.
-      if (args.open) {
-        filter.closed = { $ne: true }
-      }
-
-      return await Assessment.find(filter).lean()
     },
     async exportAssessment(_parent, args, { models, user }, _info) {
       const { Assessment, Course } = models
