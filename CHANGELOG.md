@@ -1,3 +1,9 @@
+## 1.2.2 (2023-03-04)
+
+### Features
+
+- **assessments:** added several fields to the assessment GraphQL type definition: nbInstances, nbEvaluations and takesStatus (teacher and student)
+
 ## 1.2.1 (2023-02-11)
 
 ### Features
